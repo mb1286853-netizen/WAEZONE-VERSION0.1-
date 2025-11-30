@@ -13,6 +13,7 @@ from aiohttp import web
 
 print("🚀 شروع WarZone Bot...")
 
+# تنظیمات لاگ
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -28,9 +29,9 @@ if not TOKEN:
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# سرور HTTP برای سلامت‌سنجی
+# سرور ساده HTTP برای پورت
 async def health_check(request):
-    return web.Response(text="Bot is running!")
+    return web.Response(text="🟢 WarZone Bot Active")
 
 def run_http_server():
     try:
@@ -41,6 +42,7 @@ def run_http_server():
     except Exception as e:
         logger.error(f"خطا در سرور HTTP: {e}")
 
+# ==================== دیتابیس کامل ====================
 class SimpleDB:
     def __init__(self):
         self.users = {}
@@ -176,7 +178,7 @@ def main_menu():
     ]
     return types.ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# ==================== دستورات اصلی ====================
+# ==================== تمام هندلرهای اصلی ====================
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
@@ -546,6 +548,4 @@ async def silver_box_handler(message: types.Message):
     await message.answer(response, reply_markup=main_menu())
 
 @dp.message(lambda message: message.text == "🥇 طلایی")
-async def gold_box_handler(message: types.Message):
-    user = db.get_user(message.from_user.id)
-  
+async def gold_bo
