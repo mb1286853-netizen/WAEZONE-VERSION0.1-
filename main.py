@@ -1,17 +1,16 @@
-# main.py - Simple Test
+# main.py - Emergency Fix
 import os
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 
-print("=== STARTING BOT ===")
+print("🚀 STARTING BOT...")
 
-# تنظیمات ساده
+# تنظیمات
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# توکن
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 print(f"TOKEN: {TOKEN}")
 
@@ -22,24 +21,32 @@ if not TOKEN:
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+# هندلر ساده start
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
-    print(f"📱 User {message.from_user.id} started")
-    await message.answer("🎯 **بات فعال است!**")
+    print(f"✅ START RECEIVED FROM: {message.from_user.id}")
+    await message.answer("🎯 **بات WarZone فعال است!**\n\nبه بات خوش آمدید!")
 
-@dp.message(Command("ping"))
-async def ping_cmd(message: types.Message):
-    await message.answer("🏓 **Pong!**")
+# هندلر ساده test
+@dp.message(Command("test"))
+async def test_cmd(message: types.Message):
+    await message.answer("✅ **بات کار می‌کند!**")
+
+# هندلر برای همه پیام‌ها
+@dp.message()
+async def echo_cmd(message: types.Message):
+    print(f"📩 Message: {message.text} from {message.from_user.id}")
+    await message.answer("🔧 بات در حال راه‌اندازی...")
 
 async def main():
-    print("🔄 Starting polling...")
+    print("🔧 Starting bot...")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         print("✅ Webhook deleted")
         await dp.start_polling(bot)
-        print("✅ Polling started")
+        print("✅ Polling started successfully")
     except Exception as e:
-        print(f"❌ Polling error: {e}")
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
