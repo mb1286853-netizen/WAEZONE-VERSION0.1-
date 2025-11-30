@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # بررسی توکن
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+TOKEN = os.getenv("TELEGRAM_TOKEN") or os.getenv("BOT_TOKEN") or "8214368054:AAGa5hjnqPYBqh4WlJY4oC_3ovC-emWeZUM"
 if not TOKEN:
     logger.error("❌ توکن یافت نشد! لطفا متغیر محیطی TELEGRAM_TOKEN را تنظیم کنید.")
     sys.exit(1)
