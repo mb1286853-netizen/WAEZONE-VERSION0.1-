@@ -2,7 +2,6 @@
 import os
 import asyncio
 import logging
-import signal
 import sys
 from datetime import datetime
 
@@ -109,8 +108,7 @@ async def profile_handler(message: types.Message):
             f"🔒 **امنیت**: سطح {user[8]}\n"
             f"⛏️ **ماینر**: سطح {user[9]}\n"
             f"🎯 **حملات**: {stats['total_attacks']:,}\n"
-            f"💥 **دمیج کل**: {stats['total_damage']:,}\n\n"
-            f"📅 **عضویت**: {user[15].split()[0] if user[15] else 'نامشخص'}"
+            f"💥 **دمیج کل**: {stats['total_damage']:,}"
         )
         
         db.log_activity(message.from_user.id, "profile_view")
@@ -175,15 +173,6 @@ async def single_attack_handler(message: types.Message):
         # اعطای جایزه
         db.update_user_zp(message.from_user.id, reward)
         level_up = db.update_user_xp(message.from_user.id, xp_gain)
-        
-        # ثبت آمار
-        conn = db.get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE users SET total_attacks = total_attacks + 1, total_damage = total_damage + ? WHERE user_id = ?',
-            (reward, message.from_user.id)
-        )
-        conn.commit()
         
         critical_text = " 🔥**بحرانی**" if is_critical else ""
         
@@ -498,7 +487,7 @@ async def coming_soon_handler(message: types.Message):
 async def back_handler(message: types.Message):
     await message.answer("🔙 بازگشت به منوی اصلی", reply_markup=main_menu())
 
-# هندلر پیام‌های متنی برای خرید
+# هندلر پیام‌های متنی
 @dp.message()
 async def all_messages(message: types.Message):
     try:
@@ -535,4 +524,16 @@ async def all_messages(message: types.Message):
                 await message.answer("❌ موشک پیدا نشد!", reply_markup=main_menu())
         
         elif message.text and not message.text.startswith('/'):
-      
+            await message.answer("🎯 از منوی زیر انتخاب کنید:", reply_markup=main_menu())
+            
+    except Exception as e:
+        await message.answer("❌ خطا در پردازش دستور", reply_markup=main_menu())
+
+# مدیریت خطا
+async def error_handler(update: types.Update, exception: Exception):
+    logger.error(f"خطا در پردازش آپدیت: {exception}")
+    return True
+
+# شروع بات
+async def main():
+    logger.info("🚀 شروع War
