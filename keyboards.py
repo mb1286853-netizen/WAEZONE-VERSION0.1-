@@ -54,3 +54,11 @@ def back_only():
         keyboard=[[KeyboardButton(text="🔙 بازگشت")]],
         resize_keyboard=True
     )
+    def sabotage_menu():
+    """منوی خرابکاری"""
+    keyboard = [
+        [KeyboardButton(text="🕵️ نفوذی"), KeyboardButton(text="📡 الکترونیکی")],
+        [KeyboardButton(text="🔒 اطلاعاتی"), KeyboardButton(text="📊 وضعیت تیم")],
+        [KeyboardButton(text="🔙 بازگشت")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
