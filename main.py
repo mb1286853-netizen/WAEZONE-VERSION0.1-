@@ -224,24 +224,6 @@ async def combo_attack_handler(message: types.Message):
     except Exception as e:
         await message.answer("❌ خطا در حمله ترکیبی", reply_markup=attack_menu())
 
-@dp.message(lambda message: message.text == "🔄 انتقام")
-async def revenge_attack_handler(message: types.Message):
-    await message.answer(
-        "🔄 **سیستم انتقام**\n\n"
-        "در حال حاضر حمله‌ای برای انتقام وجود ندارد.\n"
-        "پس از مورد حمله قرار گرفتن، این گزینه فعال می‌شود.",
-        reply_markup=attack_menu()
-    )
-
-@dp.message(lambda message: message.text == "📋 تاریخچه حملات")
-async def attack_history_handler(message: types.Message):
-    await message.answer(
-        "📋 **تاریخچه حملات**\n\n"
-        "در حال توسعه...\n"
-        "به زودی قابلیت مشاهده تاریخچه حملات اضافه می‌شود.",
-        reply_markup=attack_menu()
-    )
-
 # هندلرهای فروشگاه
 @dp.message(lambda message: message.text == "🚀 موشک‌ها")
 async def missiles_shop_handler(message: types.Message):
@@ -254,46 +236,12 @@ async def missiles_shop_handler(message: types.Message):
             "• **رعدآسا** - 700 ZP\n  💥 دمیج: 90\n  🎯 سطح ۳\n\n"
             "• **تندباد** - 1,000 ZP\n  💥 دمیج: 120\n  🎯 سطح ۵\n\n"
             f"💰 **موجودی شما**: {user[4]:,} ZP\n\n"
-            "برای خرید ریپلای کنید: <code>خرید موشک نامموشک</code>"
+            "برای خرید ریپلای کنید: خرید موشک نامموشک"
         )
         
         await message.answer(missiles_text, reply_markup=shop_menu())
     except Exception as e:
         await message.answer("❌ خطا در نمایش موشک‌ها", reply_markup=shop_menu())
-
-@dp.message(lambda message: message.text == "🛩 جنگنده‌ها")
-async def fighters_shop_handler(message: types.Message):
-    await message.answer(
-        "🛩 **جنگنده‌های موجود:**\n\n"
-        "• **شب‌پرواز** - 5,000 ZP\n  💥 دمیج: 200\n\n"
-        "• **توفان‌ساز** - 8,000 ZP\n  💥 دمیج: 320\n\n"
-        "• **آذرخش** - 12,000 ZP\n  💥 دمیج: 450\n\n"
-        "• **شبح‌ساحل** - 18,000 ZP\n  💥 دمیج: 700\n\n"
-        "برای خرید ریپلای کنید: <code>خرید جنگنده نامجنگنده</code>",
-        reply_markup=shop_menu()
-    )
-
-@dp.message(lambda message: message.text == "🛸 پهپادها")
-async def drones_shop_handler(message: types.Message):
-    await message.answer(
-        "🛸 **پهپادهای موجود:**\n\n"
-        "• **زنبورک** - 3,000 ZP\n  💥 دمیج: 90\n\n"
-        "• **سایفر** - 5,000 ZP\n  💥 دمیج: 150\n\n"
-        "• **ریزپرنده V** - 8,000 ZP\n  💥 دمیج: 250\n\n"
-        "برای خرید ریپلای کنید: <code>خرید پهپاد نامپهپاد</code>",
-        reply_markup=shop_menu()
-    )
-
-@dp.message(lambda message: message.text == "💎 ویژه‌ها")
-async def special_shop_handler(message: types.Message):
-    await message.answer(
-        "💎 **آیتم‌های ویژه:**\n\n"
-        "• **آتشفشان** - 8,000 ZP\n  💥 دمیج: 2,000\n\n"
-        "• **توفان‌نو** - 15,000 ZP\n  💥 دمیج: 3,000\n\n"
-        "• **خاموش‌کن** - 20,000 ZP\n  🔧 قطع سیستم\n\n"
-        "برای خرید ریپلای کنید: <code>خرید ویژه نامآیتم</code>",
-        reply_markup=shop_menu()
-    )
 
 # هندلرهای ماینر
 @dp.message(lambda message: message.text == "💰 برداشت")
@@ -328,63 +276,6 @@ async def claim_miner_handler(message: types.Message):
     except Exception as e:
         await message.answer("❌ خطا در برداشت ماینر", reply_markup=miner_menu())
 
-@dp.message(lambda message: message.text == "🔼 ارتقا")
-async def upgrade_miner_handler(message: types.Message):
-    try:
-        user = db.get_user(message.from_user.id)
-        upgrade_cost = user[9] * 500
-        
-        if user[4] >= upgrade_cost:
-            db.update_user_zp(message.from_user.id, -upgrade_cost)
-            
-            conn = db.get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                'UPDATE users SET miner_level = miner_level + 1 WHERE user_id = ?',
-                (message.from_user.id,)
-            )
-            conn.commit()
-            
-            new_level = db.get_user(message.from_user.id)[9]
-            new_balance = db.get_user(message.from_user.id)[4]
-            
-            response = (
-                f"🔼 **ارتقای موفق!**\n\n"
-                f"📊 **سطح جدید**: {new_level}\n"
-                f"💰 **هزینه**: {upgrade_cost:,} ZP\n"
-                f"💎 **تولید جدید**: {new_level * 100} ZP/ساعت\n"
-                f"💎 **موجودی جدید**: {new_balance:,} ZP"
-            )
-        else:
-            response = (
-                f"❌ **موجودی ناکافی**\n\n"
-                f"💰 **هزینه ارتقا**: {upgrade_cost:,} ZP\n"
-                f"💎 **موجودی شما**: {user[4]:,} ZP\n"
-                f"📉 **کمبود**: {upgrade_cost - user[4]:,} ZP"
-            )
-        
-        await message.answer(response, reply_markup=miner_menu())
-    except Exception as e:
-        await message.answer("❌ خطا در ارتقای ماینر", reply_markup=miner_menu())
-
-@dp.message(lambda message: message.text == "📊 وضعیت")
-async def miner_status_handler(message: types.Message):
-    try:
-        user = db.get_user(message.from_user.id)
-        
-        status_text = (
-            f"⛏️ **وضعیت ماینر**\n\n"
-            f"📊 **سطح**: {user[9]}\n"
-            f"💰 **تولید ساعتی**: {user[9] * 100} ZP\n"
-            f"💎 **موجودی فعلی**: {user[10]:,} ZP\n"
-            f"🔼 **هزینه ارتقا بعدی**: {user[9] * 500} ZP\n\n"
-            f"⏰ **سیستم**: فعال"
-        )
-        
-        await message.answer(status_text, reply_markup=miner_menu())
-    except Exception as e:
-        await message.answer("❌ خطا در نمایش وضعیت", reply_markup=miner_menu())
-
 # هندلرهای باکس
 @dp.message(lambda message: message.text == "📦 برنزی")
 async def bronze_box_handler(message: types.Message):
@@ -410,56 +301,6 @@ async def bronze_box_handler(message: types.Message):
         await message.answer(response, reply_markup=boxes_menu())
     except Exception as e:
         await message.answer("❌ خطا در باز کردن جعبه", reply_markup=boxes_menu())
-
-@dp.message(lambda message: message.text == "🥈 نقره‌ای")
-async def silver_box_handler(message: types.Message):
-    try:
-        user = db.get_user(message.from_user.id)
-        price = 5000
-        
-        if user[4] >= price:
-            db.update_user_zp(message.from_user.id, -price)
-            reward = random.randint(200, 500)
-            db.update_user_zp(message.from_user.id, reward)
-            
-            response = (
-                f"🥈 **جعبه نقره‌ای** 🎉\n\n"
-                f"💰 **هزینه**: {price:,} ZP\n"
-                f"💰 **جایزه**: {reward} ZP\n"
-                f"💎 **موجودی جدید**: {db.get_user(message.from_user.id)[4]:,} ZP"
-            )
-            
-            db.log_activity(message.from_user.id, "lootbox", "جعبه نقره‌ای")
-        else:
-            response = (
-                f"❌ **موجودی ناکافی**\n\n"
-                f"💰 **قیمت جعبه**: {price:,} ZP\n"
-                f"💎 **موجودی شما**: {user[4]:,} ZP"
-            )
-        
-        await message.answer(response, reply_markup=boxes_menu())
-    except Exception as e:
-        await message.answer("❌ خطا در باز کردن جعبه", reply_markup=boxes_menu())
-
-@dp.message(lambda message: message.text == "🥇 طلایی")
-async def gold_box_handler(message: types.Message):
-    await message.answer(
-        "🥇 **جعبه طلایی**\n\n"
-        "💰 **قیمت**: ۲ جم\n\n"
-        "🔜 به زودی فعال می‌شود\n"
-        "در حال حاضر از جعبه‌های برنزی و نقره‌ای استفاده کنید.",
-        reply_markup=boxes_menu()
-    )
-
-@dp.message(lambda message: message.text == "💎 الماس")
-async def diamond_box_handler(message: types.Message):
-    await message.answer(
-        "💎 **جعبه الماس**\n\n"
-        "💰 **قیمت**: ۵ جم\n\n"
-        "🔜 به زودی فعال می‌شود\n"
-        "در حال حاضر از جعبه‌های برنزی و نقره‌ای استفاده کنید.",
-        reply_markup=boxes_menu()
-    )
 
 # هندلرهای قابلیت‌های آینده
 @dp.message(lambda message: message.text in ["🕵️ خرابکاری", "🏆 لیگ ها", "🛡 دفاع", "⚙️ تنظیمات"])
@@ -536,4 +377,35 @@ async def error_handler(update: types.Update, exception: Exception):
 
 # شروع بات
 async def main():
-    logger.info("🚀 شروع War
+    logger.info("🚀 شروع WarZone Bot...")
+    
+    try:
+        # حذف وب‌هوک
+        async with aiohttp.ClientSession() as session:
+            await session.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+            logger.info("✅ وب‌هوک حذف شد")
+        
+        # اطلاعات بات
+        bot_info = await bot.get_me()
+        logger.info(f"✅ بات: @{bot_info.username}")
+        logger.info(f"✅ شناسه بات: {bot_info.id}")
+        
+        # تنظیم هندلر خطا
+        dp.errors.register(error_handler)
+        
+        logger.info("🟢 بات WarZone آنلاین شد و آماده دریافت پیام‌ها است...")
+        
+        # شروع پولینگ
+        await dp.start_polling(bot, skip_updates=True)
+        
+    except Exception as e:
+        logger.error(f"❌ خطای بحرانی: {e}")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("⏹ توقف دستی بات")
+    except Exception as e:
+        logger.error(f"❌ خطای اصلی: {e}")
