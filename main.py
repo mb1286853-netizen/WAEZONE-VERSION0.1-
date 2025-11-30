@@ -89,7 +89,6 @@ class SimpleDB:
     def can_open_bronze_box(self, user_id):
         user = self.get_user(user_id)
         current_time = time.time()
-        # چک کردن 24 ساعت (86400 ثانیه)
         return current_time - user.get('last_bronze_box', 0) >= 86400
     
     def set_bronze_box_time(self, user_id):
@@ -126,7 +125,6 @@ async def start_cmd(message: types.Message):
 async def profile_handler(message: types.Message):
     user = db.get_user(message.from_user.id)
     
-    # محاسبه زمان باقی‌مانده تا جعبه برنزی
     can_open_bronze = db.can_open_bronze_box(message.from_user.id)
     if can_open_bronze:
         box_status = "🟢 آماده"
@@ -171,7 +169,6 @@ async def attack_handler(message: types.Message):
 async def single_attack_handler(message: types.Message):
     user = db.get_user(message.from_user.id)
     
-    # شانس حمله بحرانی
     is_critical = random.random() < 0.15
     base_reward = random.randint(40, 80)
     reward = base_reward * 2 if is_critical else base_reward
@@ -211,12 +208,10 @@ async def combo_attack_handler(message: types.Message):
         )
         return
     
-    # محاسبه دمیج ترکیبی
     base_damage = random.randint(80, 150)
     fighter_bonus = len(user_fighters) * 50
     total_damage = base_damage + fighter_bonus
     
-    # شانس بحرانی
     is_critical = random.random() < 0.15
     if is_critical:
         total_damage *= 2
@@ -276,7 +271,7 @@ async def missiles_shop_handler(message: types.Message):
         "• **رعدآسا** - 700 ZP\n  💥 دمیج: 90\n  🎯 سطح ۳\n\n"
         "• **تندباد** - 1,000 ZP\n  💥 دمیج: 120\n  🎯 سطح ۵\n\n"
         f"💰 **موجودی شما**: {user['zp']:,} ZP\n\n"
-        "برای خرید ریپلای کنید: <code>خرید موشک نامموشک</code>"
+        "برای خرید ریپلای کنید: خرید موشک نامموشک"
     )
     
     await message.answer(missiles_text, reply_markup=main_menu())
@@ -292,7 +287,7 @@ async def fighters_shop_handler(message: types.Message):
         "• **آذرخش** - 12,000 ZP\n  💥 دمیج: 450\n\n"
         "• **شبح‌ساحل** - 18,000 ZP\n  💥 دمیج: 700\n\n"
         f"💰 **موجودی شما**: {user['zp']:,} ZP\n\n"
-        "برای خرید ریپلای کنید: <code>خرید جنگنده نامجنگنده</code>"
+        "برای خرید ریپلای کنید: خرید جنگنده نامجنگنده"
     )
     
     await message.answer(fighters_text, reply_markup=main_menu())
@@ -307,7 +302,7 @@ async def drones_shop_handler(message: types.Message):
         "• **سایفر** - 5,000 ZP\n  💥 دمیج: 150\n\n"
         "• **ریزپرنده V** - 8,000 ZP\n  💥 دمیج: 250\n\n"
         f"💰 **موجودی شما**: {user['zp']:,} ZP\n\n"
-        "برای خرید ریپلای کنید: <code>خرید پهپاد نامپهپاد</code>"
+        "برای خرید ریپلای کنید: خرید پهپاد نامپهپاد"
     )
     
     await message.answer(drones_text, reply_markup=main_menu())
@@ -322,7 +317,7 @@ async def special_shop_handler(message: types.Message):
         "• **توفان‌نو** - 15,000 ZP\n  💥 دمیج: 3,000\n\n"
         "• **خاموش‌کن** - 20,000 ZP\n  🔧 قطع سیستم\n\n"
         f"💰 **موجودی شما**: {user['zp']:,} ZP\n\n"
-        "برای خرید ریپلای کنید: <code>خرید ویژه نامآیتم</code>"
+        "برای خرید ریپلای کنید: خرید ویژه نامآیتم"
     )
     
     await message.answer(special_text, reply_markup=main_menu())
@@ -362,7 +357,6 @@ async def bronze_box_handler(message: types.Message):
             f"💡 هر ۲۴ ساعت می‌توانید یک جعبه برنزی رایگان باز کنید."
         )
     else:
-        # شانس‌ها
         reward_type = random.choices(['zp', 'missile'], weights=[70, 30])[0]
         
         if reward_type == 'zp':
@@ -416,7 +410,7 @@ async def miner_handler(message: types.Message):
         f"📊 **سطح**: {user['miner_level']}\n"
         f"💎 **موجودی**: {user['miner_balance']:,} ZP\n\n"
         f"🔼 **هزینه ارتقا**: {user['miner_level'] * 500} ZP\n\n"
-        "برای برداشت از دستور زیر استفاده کنید:\n<code>برداشت ماینر</code>"
+        "برای برداشت از دستور زیر استفاده کنید: برداشت ماینر"
     )
     
     await message.answer(miner_text, reply_markup=main_menu())
@@ -442,7 +436,7 @@ async def coming_soon_handler(message: types.Message):
         reply_markup=main_menu()
     )
 
-# هندلر پیام‌های متنی برای خرید و دستورات
+# هندلر پیام‌های متنی
 @dp.message()
 async def all_messages(message: types.Message):
     try:
@@ -547,6 +541,12 @@ async def main():
     logger.info("🚀 شروع WarZone Bot...")
     
     try:
-        # حذف وب‌هوک
         async with aiohttp.ClientSession() as session:
-            await 
+            await session.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+            logger.info("✅ وب‌هوک حذف شد")
+        
+        bot_info = await bot.get_me()
+        logger.info(f"✅ بات: @{bot_info.username}")
+        
+        logger.info("🟢 بات WarZone آنلاین شد!")
+        
