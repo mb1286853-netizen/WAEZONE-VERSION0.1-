@@ -5,10 +5,11 @@ import logging
 import sys
 import random
 import time
+import threading
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-import aiohttp
+from aiohttp import web
 
 print("🚀 شروع WarZone Bot...")
 
@@ -26,6 +27,19 @@ if not TOKEN:
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+# سرور HTTP برای سلامت‌سنجی
+async def health_check(request):
+    return web.Response(text="Bot is running!")
+
+def run_http_server():
+    try:
+        app = web.Application()
+        app.router.add_get('/', health_check)
+        app.router.add_get('/health', health_check)
+        web.run_app(app, host='0.0.0.0', port=8080)
+    except Exception as e:
+        logger.error(f"خطا در سرور HTTP: {e}")
 
 class SimpleDB:
     def __init__(self):
@@ -534,13 +548,4 @@ async def silver_box_handler(message: types.Message):
 @dp.message(lambda message: message.text == "🥇 طلایی")
 async def gold_box_handler(message: types.Message):
     user = db.get_user(message.from_user.id)
-    
-    response = "🥇 **جعبه طلایی**\n\n💰 **قیمت**: ۲ جم\n\n🔜 به زودی فعال می‌شود\nدر حال حاضر از جعبه‌های برنزی و نقره‌ای استفاده کنید."
-    
-    await message.answer(response, reply_markup=main_menu())
-
-@dp.message(lambda message: message.text == "💎 الماس")
-async def diamond_box_handler(message: types.Message):
-    user = db.get_user(message.from_user.id)
-    
-    response = "💎 **جعبه الماس**\n\n💰 **قیمت**: ۵ جم\n\
+  
