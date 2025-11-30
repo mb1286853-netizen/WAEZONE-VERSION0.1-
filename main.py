@@ -1,4 +1,4 @@
-# main.py - WarZone Bot with Anti-Sleep
+# main.py - WarZone Bot Complete
 import os
 import asyncio
 import logging
@@ -36,30 +36,36 @@ dp = Dispatcher()
 # ==================== سیستم جلوگیری از اسلیپ ====================
 def keep_alive():
     """بات رو همیشه فعال نگه می‌داره"""
-    import requests
-    while True:
-        try:
-            # ایجاد درخواست به سلامت‌سنجی Railway
-            port = os.getenv("PORT", "8080")
-            url = f"http://0.0.0.0:{port}"
-            requests.get(url, timeout=5)
-            print(f"🟢 فعال‌سازی بات - {datetime.now().strftime('%H:%M:%S')}")
-        except Exception as e:
-            print(f"⚠️ خطا در فعال‌سازی: {e}")
-        time.sleep(60)  # هر 1 دقیقه
+    try:
+        import requests
+        while True:
+            try:
+                # ایجاد درخواست به سلامت‌سنجی Railway
+                port = os.getenv("PORT", "8080")
+                url = f"http://0.0.0.0:{port}"
+                response = requests.get(url, timeout=5)
+                print(f"🟢 فعال‌سازی بات - {datetime.now().strftime('%H:%M:%S')} - Status: {response.status_code}")
+            except Exception as e:
+                print(f"⚠️ خطا در فعال‌سازی: {e}")
+            time.sleep(300)  # هر 5 دقیقه
+    except ImportError:
+        print("⚠️ requests نصب نیست - سیستم ضد اسلیپ غیرفعال")
 
 # اجرای سیستم فعال‌سازی
-keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
-keep_alive_thread.start()
-print("✅ سیستم جلوگیری از اسلیپ فعال شد")
+try:
+    keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
+    keep_alive_thread.start()
+    print("✅ سیستم جلوگیری از اسلیپ فعال شد")
+except Exception as e:
+    print(f"⚠️ خطا در سیستم ضد اسلیپ: {e}")
 
 # وضعیت خرید کاربران
 user_purchase_state = {}
 user_admin_state = {}
 
-# ==================== تمام هندلرهای اصلی ====================
+# ==================== دستورات اصلی ====================
 @dp.message(Command("start"))
-async def start_cmd(message: types.Message):
+async def start_handler(message: types.Message):
     user = db.get_user(message.from_user.id)
     username = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
     
@@ -84,7 +90,7 @@ async def start_cmd(message: types.Message):
     await message.answer(welcome_text, reply_markup=menu)
 
 @dp.message(Command("help"))
-async def help_cmd(message: types.Message):
+async def help_handler(message: types.Message):
     help_text = """
 🆘 **راهنمای WarZone**
 
@@ -106,7 +112,7 @@ async def help_cmd(message: types.Message):
     await message.answer(help_text, reply_markup=kb.main_menu())
 
 @dp.message(Command("admin"))
-async def admin_cmd(message: types.Message):
+async def admin_handler(message: types.Message):
     if not db.is_admin(message.from_user.id):
         await message.answer("❌ دسترسی denied! شما ادمین نیستید.", reply_markup=kb.main_menu())
         return
@@ -173,8 +179,8 @@ async def admin_add_zp_handler(message: types.Message):
         "مثال:\n"
         "`123456789 5000`\n\n"
         "این مقدار ZP به کاربر اضافه خواهد شد.",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
             resize_keyboard=True
         )
     )
@@ -192,8 +198,8 @@ async def admin_add_gem_handler(message: types.Message):
         "مثال:\n"
         "`123456789 10`\n\n"
         "این مقدار جم به کاربر اضافه خواهد شد.",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
             resize_keyboard=True
         )
     )
@@ -211,8 +217,8 @@ async def admin_add_level_handler(message: types.Message):
         "مثال:\n"
         "`123456789 5`\n\n"
         "این مقدار لول به کاربر اضافه خواهد شد.",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
             resize_keyboard=True
         )
     )
@@ -229,8 +235,8 @@ async def admin_user_info_handler(message: types.Message):
         "`آیدی_کاربر`\n\n"
         "مثال:\n"
         "`123456789`",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
             resize_keyboard=True
         )
     )
@@ -245,15 +251,15 @@ async def admin_broadcast_handler(message: types.Message):
         "📢 **ارسال پیام همگانی**\n\n"
         "لطفاً پیام خود را ارسال کنید:\n\n"
         "این پیام به همه کاربران بات ارسال خواهد شد.",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="🔙 بازگشت به پنل ادمین")]],
             resize_keyboard=True
         )
     )
 
 # پردازش دستورات ادمین
 @dp.message(F.text.regexp(r'^\d+ \d+$'))
-async def process_admin_action(message: types.Message):
+async def process_admin_action_handler(message: types.Message):
     if not db.is_admin(message.from_user.id):
         return
     
@@ -288,7 +294,7 @@ async def process_admin_action(message: types.Message):
     del user_admin_state[user_id]
 
 @dp.message(F.text.regexp(r'^\d+$'))
-async def process_user_info(message: types.Message):
+async def process_user_info_handler(message: types.Message):
     if not db.is_admin(message.from_user.id):
         return
     
@@ -330,7 +336,7 @@ async def process_user_info(message: types.Message):
 
 # ارسال همگانی
 @dp.message(F.text & ~F.text.startswith('/') & ~F.text.startswith('🔙'))
-async def process_broadcast(message: types.Message):
+async def process_broadcast_handler(message: types.Message):
     user_id = message.from_user.id
     
     if user_id in user_admin_state and user_admin_state[user_id]['action'] == 'broadcast':
@@ -354,7 +360,7 @@ async def process_broadcast(message: types.Message):
 
 # ==================== سیستم پشتیبانی ====================
 @dp.message(F.text == "📞 پشتیبانی")
-async def support_handler(message: types.Message):
+async def support_main_handler(message: types.Message):
     support_text = """
 📞 **پشتیبانی WarZone**
 
@@ -377,8 +383,8 @@ async def create_ticket_handler(message: types.Message):
         "✅ در صورت امکان تصویر یا اسکرین‌شات ارسال کنید\n"
         "✅ پیام شما به ادمین‌ها ارسال خواهد شد\n\n"
         "برای انصراف از منوی بازگشت استفاده کنید.",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 بازگشت")]],
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="🔙 بازگشت")]],
             resize_keyboard=True
         )
     )
@@ -445,7 +451,7 @@ async def contact_admin_handler(message: types.Message):
 
 # پردازش تیکت پشتیبانی
 @dp.message(F.text & ~F.text.startswith('/') & ~F.text.startswith('🔙'))
-async def process_ticket_message(message: types.Message):
+async def process_ticket_message_handler(message: types.Message):
     user_id = message.from_user.id
     
     if user_id in user_admin_state and user_admin_state[user_id]['action'] == 'create_ticket':
@@ -476,7 +482,7 @@ async def process_ticket_message(message: types.Message):
 
 # ==================== سیستم حمله کامل ====================
 @dp.message(F.text == "⚔️ حمله")
-async def attack_handler(message: types.Message):
+async def attack_main_handler(message: types.Message):
     await message.answer(
         "⚔️ **سیستم حمله WarZone**\n\n"
         "🎯 **حمله تکی** - حمله ساده با موشک\n"
@@ -485,6 +491,36 @@ async def attack_handler(message: types.Message):
         "👇 نوع حمله را انتخاب کنید:",
         reply_markup=kb.attack_menu()
     )
+
+@dp.message(F.text == "🎯 حمله تکی")
+async def single_attack_handler(message: types.Message):
+    user = db.get_user(message.from_user.id)
+    
+    # محاسبات حمله
+    attack_config = ATTACK_TYPES["تکی"]
+    is_critical = random.random() < attack_config["critical_chance"]
+    base_reward = random.randint(attack_config["base_damage"][0], attack_config["base_damage"][1])
+    reward = base_reward * 2 if is_critical else base_reward
+    xp_gain = random.randint(attack_config["xp_gain"][0], attack_config["xp_gain"][1])
+    
+    # آپدیت کاربر
+    new_balance = db.update_user_zp(message.from_user.id, reward)
+    level_up, new_level = db.update_user_xp(message.from_user.id, xp_gain)
+    
+    user['total_attacks'] += 1
+    user['total_damage'] += reward
+    
+    # ساخت پاسخ
+    critical_text = " 🔥**بحرانی**" if is_critical else ""
+    
+    response = f"⚔️ **حمله تکی موفق{critical_text}!**\n\n💰 **جایزه**: {reward} ZP\n⭐ **XP**: +{xp_gain}\n"
+    
+    if level_up:
+        response += f"🎉 **سطح شما ارتقا یافت!** (سطح {new_level})\n"
+    
+    response += f"\n💎 **موجودی جدید**: {new_balance:,} ZP"
+    
+    await message.answer(response, reply_markup=kb.main_menu())
 
 @dp.message(F.text == "💥 حمله ترکیبی")
 async def combo_attack_handler(message: types.Message):
@@ -553,57 +589,4 @@ async def drone_attack_handler(message: types.Message):
     drone_bonus = len(user_drones) * 30
     total_damage = base_damage + drone_bonus
     
-    is_critical = random.random() < attack_config["critical_chance"]
-    if is_critical:
-        total_damage *= 2
-    
-    reward = total_damage
-    xp_gain = random.randint(attack_config["xp_gain"][0], attack_config["xp_gain"][1])
-    
-    # آپدیت کاربر
-    new_balance = db.update_user_zp(message.from_user.id, reward)
-    level_up, new_level = db.update_user_xp(message.from_user.id, xp_gain)
-    
-    user['total_attacks'] += 1
-    user['total_damage'] += total_damage
-    
-    # ساخت پاسخ
-    critical_text = " 🔥**بحرانی**" if is_critical else ""
-    drone_text = f" ({len(user_drones)} پهپاد)"
-    
-    response = f"🛸 **حمله پهپادی موفق{critical_text}**{drone_text}\n\n💥 **دمیج**: {total_damage}\n💰 **جایزه**: {reward} ZP\n⭐ **XP**: +{xp_gain}\n"
-    
-    if level_up:
-        response += f"🎉 **سطح شما ارتقا یافت!** (سطح {new_level})\n"
-    
-    response += f"\n💎 **موجودی جدید**: {new_balance:,} ZP"
-    
-    await message.answer(response, reply_markup=kb.main_menu())
-
-# ==================== فروشگاه کامل ====================
-@dp.message(F.text == "🛩 جنگنده‌ها")
-async def fighters_shop_handler(message: types.Message):
-    user = db.get_user(message.from_user.id)
-    
-    fighters_text = f"""
-🛩 **جنگنده‌های موجود**
-
-💰 **موجودی شما**: {user['zp']:,} ZP
-
-👇 جنگنده مورد نظر را انتخاب کنید:
-
-• **شب‌پرواز** - 5,000 ZP
-  💥 دمیج: 200
-
-• **توفان‌ساز** - 8,000 ZP
-  💥 دمیج: 320
-
-• **آذرخش** - 12,000 ZP
-  💥 دمیج: 450
-
-• **شبح‌ساحل** - 18,000 ZP
-  💥 دمیج: 700
-"""
-    await message.answer(fighters_text, reply_markup=kb.fighters_menu())
-
-@dp.message(F.text 
+    is_critical = r
