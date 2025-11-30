@@ -48,13 +48,7 @@ def miner_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-def back_only():
-    """فقط دکمه بازگشت"""
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="🔙 بازگشت")]],
-        resize_keyboard=True
-    )
-    def sabotage_menu():
+def sabotage_menu():
     """منوی خرابکاری"""
     keyboard = [
         [KeyboardButton(text="🕵️ نفوذی"), KeyboardButton(text="📡 الکترونیکی")],
@@ -62,3 +56,26 @@ def back_only():
         [KeyboardButton(text="🔙 بازگشت")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+def defense_menu():
+    """منوی دفاع"""
+    keyboard = [
+        [KeyboardButton(text="🛡️ ارتقا دفاع"), KeyboardButton(text="📊 وضعیت دفاع")],
+        [KeyboardButton(text="🔙 بازگشت")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+def league_menu():
+    """منوی لیگ‌ها"""
+    keyboard = [
+        [KeyboardButton(text="🏆 وضعیت لیگ"), KeyboardButton(text="💰 دریافت پاداش")],
+        [KeyboardButton(text="📈 رتبه جهانی"), KeyboardButton(text="🔙 بازگشت")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+def back_only():
+    """فقط دکمه بازگشت"""
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="🔙 بازگشت")]],
+        resize_keyboard=True
+    )
