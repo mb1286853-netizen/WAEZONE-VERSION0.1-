@@ -1,39 +1,31 @@
-# main.py - سازگار با aiogram 3.x
+# main.py - سازگار با aiogram 2.x (برای Railway)
 import os
 import asyncio
 import logging
 import sys
 from aiohttp import web
 
-# تنظیمات لاگ
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-print("=" * 50)
-print("🚀 WARZONE BOT V3 STARTING...")
-print("=" * 50)
+print("=" * 60)
+print("🚀 WARZONE BOT - RAILWAY EDITION")
+print("=" * 60)
 
 # دریافت توکن
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
-    print("⚠️ توکن یافت نشد! حالت تست فعال شد.")
-    TOKEN = "dummy_token"
+    print("⚠️ WARNING: TELEGRAM_TOKEN not found!")
+    print("⚠️ Bot will run in healthcheck-only mode")
+    TOKEN = None
 else:
-    print(f"✅ توکن دریافت شد")
+    print(f"✅ Token loaded: {TOKEN[:10]}...")
 
-# ==================== HTTP SERVER برای Railway ====================
+# ==================== HTTP SERVER ====================
 async def health_check(request):
     return web.Response(text="OK")
 
 async def start_http_server():
-    """سرور سلامت برای Railway"""
     app = web.Application()
     app.router.add_get('/health', health_check)
     app.router.add_get('/', health_check)
-    app.router.add_get('/healthcheck', health_check)  # برای railway
     
     runner = web.AppRunner(app)
     await runner.setup()
@@ -42,194 +34,208 @@ async def start_http_server():
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     
-    print(f"✅ Healthcheck server started on port {port}")
+    print(f"✅ HTTP Server running on port {port}")
+    print(f"✅ Healthcheck: http://localhost:{port}/health")
     return runner
 
 # ==================== TELEGRAM BOT ====================
-async def start_telegram_bot():
-    """شروع تلگرام بات"""
-    if TOKEN == "dummy_token":
-        print("⚠️ حالت تست: تلگرام بات غیرفعال")
-        return None, None
+async def start_bot():
+    if not TOKEN:
+        return None
     
     try:
-        from aiogram import Bot, Dispatcher, types
-        from aiogram.filters import Command
-        from aiogram.enums import ParseMode
+        print("🤖 Importing aiogram...")
+        # Try multiple import methods
+        try:
+            from aiogram import Bot, Dispatcher, types
+            from aiogram import executor
+            print("✅ aiogram imported successfully")
+        except ImportError as e:
+            print(f"❌ Import error: {e}")
+            print("📦 Installing aiogram...")
+            import subprocess
+            subprocess.run([sys.executable, "-m", "pip", "install", "aiogram==2.25.1"])
+            from aiogram import Bot, Dispatcher, types
+            from aiogram import executor
         
-        print("🤖 Connecting to Telegram...")
+        print("🤖 Creating bot instance...")
+        bot = Bot(token=TOKEN)
         
-        # ساخت بات
-        bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+        # Test connection
+        try:
+            me = await bot.get_me()
+            print(f"✅ Connected to: @{me.username} (ID: {me.id})")
+        except Exception as e:
+            print(f"❌ Connection test failed: {e}")
+            return None
         
-        # تست اتصال
-        me = await bot.get_me()
-        print(f"✅ Connected to: @{me.username} (ID: {me.id})")
-        
-        # ساخت دیسپچر
-        dp = Dispatcher()
+        dp = Dispatcher(bot)
         
         # ========== HANDLERS ==========
-        @dp.message(Command("start"))
-        async def cmd_start(message: types.Message):
+        @dp.message_handler(commands=['start'])
+        async def send_welcome(message: types.Message):
             await message.answer(
                 "🎯 <b>به WarZone خوش آمدید!</b>\n\n"
-                "🤖 بات فعال است و آماده خدمت!\n"
-                "✅ همه سیستم‌ها آنلاین هستند\n\n"
-                "<b>دستورات سریع:</b>\n"
-                "/help - راهنما\n"
-                "/profile - پروفایل\n"
-                "/shop - فروشگاه\n"
-                "/attack - حمله\n\n"
-                "<i>بات توسط Railway میزبانی می‌شود</i>"
+                "🤖 بات با موفقیت راه‌اندازی شد!\n"
+                "✅ همه سیستم‌ها فعال هستند\n\n"
+                "<b>دستورات:</b>\n"
+                "/help - راهنمای بات\n"
+                "/profile - پروفایل شما\n"
+                "/shop - فروشگاه جنگ\n"
+                "/attack - حمله به دشمن\n\n"
+                "<i>میزبان: Railway | وضعیت: آنلاین</i>",
+                parse_mode="HTML"
             )
-            print(f"👤 کاربر {message.from_user.id} استارت زد")
+            print(f"👤 User {message.from_user.id} started")
         
-        @dp.message(Command("help"))
-        async def cmd_help(message: types.Message):
-            await message.answer(
-                "🆘 <b>راهنمای WarZone</b>\n\n"
-                "<b>دستورات اصلی:</b>\n"
-                "/start - شروع بات\n"
-                "/help - این راهنما\n"
-                "/profile - پروفایل\n"
-                "/shop - فروشگاه\n"
-                "/attack - حمله\n\n"
-                "<b>سیستم‌ها:</b>\n"
-                "• ⚔️ سیستم حمله\n"
-                "• 🛒 فروشگاه تجهیزات\n"
-                "• ⛏ ماینر منابع\n"
-                "• 🏆 سیستم لیگ\n\n"
-                "<i>ورژن: 3.0 | میزبان: Railway</i>"
-            )
+        @dp.message_handler(commands=['help'])
+        async def send_help(message: types.Message):
+            help_text = """
+🆘 <b>راهنمای WarZone</b>
+
+<b>دستورات اصلی:</b>
+/start - شروع بات
+/help - این راهنما
+/profile - اطلاعات حساب
+/shop - فروشگاه تجهیزات
+/attack - سیستم حمله
+
+<b>سیستم‌های فعال:</b>
+✅ سیستم پروفایل
+✅ سیستم فروشگاه  
+✅ سیستم حمله
+✅ سیستم ماینر
+✅ سیستم خرابکاری
+✅ سیستم لیگ
+
+<i>برای حمله به دشمن /attack را بفرستید</i>
+"""
+            await message.answer(help_text, parse_mode="HTML")
         
-        @dp.message(Command("profile"))
-        async def cmd_profile(message: types.Message):
-            from datetime import datetime
-            user_id = message.from_user.id
-            username = message.from_user.username or message.from_user.first_name
-            
+        @dp.message_handler(commands=['profile'])
+        async def send_profile(message: types.Message):
             profile = f"""
 👤 <b>پروفایل جنگجو</b>
 
-🆔 <b>آیدی:</b> {user_id}
-👤 <b>نام:</b> {username}
+🆔 <b>آیدی:</b> {message.from_user.id}
+👤 <b>نام:</b> {message.from_user.first_name}
 ⭐ <b>سطح:</b> 1
 💰 <b>ZP:</b> 1,000
 💎 <b>جم:</b> 10
 💪 <b>قدرت:</b> 100
 
-⚔️ <b>حملات:</b> 0
-💥 <b>دمیج کل:</b> 0
-🛡 <b>دفاع:</b> 50%
-
-⏰ <b>عضویت:</b> {datetime.now().strftime('%Y-%m-%d')}
-✅ <b>وضعیت:</b> فعال
+⚔️ <b>آماده نبرد!</b>
+✅ <b>وضعیت:</b> آنلاین
 """
-            await message.answer(profile)
+            await message.answer(profile, parse_mode="HTML")
         
-        @dp.message(Command("shop"))
-        async def cmd_shop(message: types.Message):
+        @dp.message_handler(commands=['shop'])
+        async def send_shop(message: types.Message):
             shop = """
 🛒 <b>فروشگاه WarZone</b>
 
-<b>🚀 موشک‌ها:</b>
+<b>موشک‌ها (🚀):</b>
 • تیرباران - 400 ZP
 • رعدآسا - 700 ZP
 • تندباد - 1,000 ZP
 
-<b>🛩 جنگنده‌ها:</b>
+<b>جنگنده‌ها (🛩):</b>
 • شب‌پرواز - 5,000 ZP
 • توفان‌ساز - 8,000 ZP
 
-<b>🛸 پهپادها:</b>
+<b>پهپادها (🛸):</b>
 • زنبورک - 3,000 ZP
 • سایفر - 5,000 ZP
 
 💰 <b>موجودی شما:</b> 1,000 ZP
-✅ <b>فروشگاه:</b> باز
+🔓 <b>فروشگاه:</b> باز
 """
-            await message.answer(shop)
+            await message.answer(shop, parse_mode="HTML")
         
-        @dp.message(Command("attack"))
-        async def cmd_attack(message: types.Message):
+        @dp.message_handler(commands=['attack'])
+        async def send_attack(message: types.Message):
             import random
             damage = random.randint(50, 150)
             reward = random.randint(100, 300)
             
             attack = f"""
-⚔️ <b>حمله موفق!</b>
+⚔️ <b>حمله موفقیت‌آمیز!</b>
 
-🎯 <b>نوع:</b> حمله تکی
-💥 <b>دمیج:</b> {damage}
-💰 <b>جایزه:</b> {reward} ZP
-⭐ <b>XP:</b> +25
+🎯 <b>هدف:</b> پایگاه دشمن
+💥 <b>دمیج:</b> {damage} واحد
+💰 <b>غنیمت:</b> {reward} ZP
+⭐ <b>تجربه:</b> +{damage // 5}
 
-🏆 <b>نتیجه:</b> پیروزی
-✅ <b>موجودی جدید:</b> 1,{reward} ZP
+🏆 <b>نتیجه:</b> پیروزی کامل!
+💎 <b>موجودی جدید:</b> {1000 + reward:,} ZP
 
-<i>از حمله ترکیبی برای جایزه بیشتر استفاده کنید!</i>
+<i>برای حملات قوی‌تر، تجهیزات خود را ارتقا دهید!</i>
 """
-            await message.answer(attack)
+            await message.answer(attack, parse_mode="HTML")
         
-        # هندلر برای تمام پیام‌ها
-        @dp.message()
+        # Handle all other messages
+        @dp.message_handler()
         async def echo(message: types.Message):
             if message.text:
-                # اگر دستور نبود
-                if not message.text.startswith('/'):
-                    await message.answer(
-                        f"📨 <b>پیام دریافت شد:</b> {message.text}\n\n"
-                        "🤖 <i>بات در حال کار است!</i>\n"
-                        "💡 برای راهنما /help را بفرستید"
-                    )
+                await message.answer(
+                    f"📨 <b>پیام دریافت شد:</b>\n{message.text}\n\n"
+                    "🤖 <i>بات در حال اجراست!</i>\n"
+                    "💡 برای راهنما /help را بفرستید",
+                    parse_mode="HTML"
+                )
         
-        print("✅ All handlers registered successfully")
-        return dp, bot
+        print("✅ All handlers registered")
+        return dp
         
-    except ImportError as e:
-        print(f"❌ Import Error: {e}")
-        print("📦 لطفا aiogram را آپدیت کنید:")
-        print("pip install aiogram==3.11.2")
-        return None, None
     except Exception as e:
-        print(f"❌ Telegram Error: {e}")
+        print(f"❌ Bot setup failed: {e}")
         import traceback
         traceback.print_exc()
-        return None, None
+        return None
 
-# ==================== MAIN FUNCTION ====================
+# ==================== MAIN ====================
 async def main():
-    print("🌐 Starting HTTP server for Railway...")
+    print("🌐 Starting HTTP server...")
     http_runner = await start_http_server()
     
-    print("🤖 Initializing Telegram Bot...")
-    dp, bot = await start_telegram_bot()
+    print("\n🤖 Setting up Telegram Bot...")
+    dp = await start_bot()
     
-    if dp and bot:
-        print("🔄 Starting polling...")
-        try:
-            # شروع پولینگ
-            await dp.start_polling(bot, skip_updates=True)
-            
-        except Exception as e:
-            print(f"❌ Polling error: {e}")
-            print("⚠️ اما HTTP server همچنان فعال است")
-            await asyncio.Future()  # Run forever
+    if dp:
+        print("\n" + "=" * 60)
+        print("✅ BOT IS FULLY OPERATIONAL!")
+        print("✅ HTTP Server: Running")
+        print("✅ Telegram Bot: Connected")
+        print("✅ Healthcheck: Active")
+        print("=" * 60)
+        
+        # Start polling (aiogram 2.x style)
+        from aiogram import executor
+        print("\n🔄 Starting message polling...")
+        await dp.start_polling()
+        
     else:
-        print("⚠️ Telegram bot failed to start")
-        print("✅ اما HTTP server is running for Railway healthcheck")
-        await asyncio.Future()  # Run forever
+        print("\n⚠️ Telegram bot not available")
+        print("✅ But HTTP server is running for Railway")
+        print("📡 Healthcheck: http://localhost:8000/health")
+        
+        # Keep running for Railway
+        await asyncio.Future()
 
 if __name__ == "__main__":
+    # Create necessary folders
+    for folder in ["backups", "logs"]:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n👋 Shutting down...")
     except Exception as e:
-        print(f"❌ Fatal error: {e}")
+        print(f"\n❌ Fatal error: {e}")
         import traceback
         traceback.print_exc()
-        # باز هم اجرا بمان برای Railway
+        # Keep running for Railway healthcheck
         import time
         time.sleep(3600)
