@@ -552,4 +552,4 @@ async def cyber_tower_cmd(message: types.Message):
     else:
         text += "\n🎉 **حداکثر سطح رسیده‌اید!**"
     
-    await message.answer(text, reply_markup=kb.main_men
+    await message.answer(text, reply_markup=kb.main_menu())
