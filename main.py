@@ -6,6 +6,115 @@ import sys
 import random
 import time
 from datetime import datetime
+from aiohttp import web  # <-- جدید
+
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
+import keyboards as kb
+from config import SHOP_ITEMS, ATTACK_TYPES, ADMINS, SABOTAGE_TEAMS, CYBER_TOWER
+from database_stable import db
+from backup_manager import backup_mgr, auto_backup
+
+print("🚀 شروع WarZone Bot...")
+
+# تنظیمات لاگ
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
+
+# بررسی توکن
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TOKEN:
+    logger.error("❌ توکن یافت نشد!")
+    sys.exit(1)
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
+# ==================== HEALTH CHECK برای Railway ====================
+async def health_check(request):
+    return web.Response(text="✅ بات WarZone فعال است")
+
+# ایجاد اپلیکیشن aiohttp
+app = web.Application()
+app.router.add_get('/health', health_check)
+print("🌐 Health check endpoint ایجاد شد")
+
+# ==================== هندلر خطای عمومی ====================
+@dp.error()
+async def error_handler(update: types.Update, exception: Exception):
+    logger.error(f"⚠️ خطا در پردازش آپدیت: {exception}")
+    try:
+        # سعی کن به کاربر اطلاع بدی
+        if update.message:
+            await update.message.answer("⚠️ خطایی رخ داد! لطفاً دوباره تلاش کنید.")
+    except:
+        pass
+    return True
+
+# ==================== وضعیت کاربران ====================
+user_purchase_state = {}
+user_admin_state = {}
+
+# شروع سیستم بکاپ خودکار
+auto_backup.start()
+print("🔄 سیستم بکاپ خودکار فعال شد")
+
+# ==================== دستورات اصلی ====================
+@dp.message(Command("start"))
+async def start_cmd(message: types.Message):
+    user = db.get_user(message.from_user.id)
+    username = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+    
+    if db.is_admin(message.from_user.id):
+        menu = kb.admin_menu()
+        admin_text = "\n\n👑 **شما ادمین هستید**"
+    else:
+        menu = kb.main_menu()
+        admin_text = ""
+    
+    welcome_text = f"""
+🎯 **به WarZone خوش آمدید {username}!** ⚔️
+
+💰 **موجودی**: {user['zp']:,} ZP
+⭐ **سطح**: {user['level']}
+💪 **قدرت**: {user['power']}
+{admin_text}
+
+👇 از منوی زیر انتخاب کنید:
+"""
+    await message.answer(welcome_text, reply_markup=menu)
+    print(f"✅ کاربر {message.from_user.id} استارت زد")
+
+# ==================== تست بات ====================
+@dp.message(Command("test"))
+async def test_cmd(message: types.Message):
+    """دستور تست برای بررسی فعال بودن بات"""
+    await message.answer("✅ بات WarZone فعال و آماده است!")
+    print(f"✅ تست موفق از کاربر {message.from_user.id}")
+
+@dp.message(Command("ping"))
+async def ping_cmd(message: types.Message):
+    """بررسی latency"""
+    start_time = time.time()
+    msg = await message.answer("🏓 پینگ...")
+    end_time = time.time()
+    latency = (end_time - start_time) * 1000
+    
+    await msg.edit_text(f"🏓 پونگ!\n⏱ زمان پاسخ: {latency:.0f}ms\n✅ بات فعال است")
+    
+# بقیه کدها دقیقاً مثل قبل...
+# [کدهای باقی‌مانده رو اینجا paste کن]# main.py - WarZone Bot Complete با سیستم بکاپ
+import os
+import asyncio
+import logging
+import sys
+import random
+import time
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
