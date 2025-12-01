@@ -506,56 +506,38 @@ async def silver_box_cmd(message: types.Message):
     
     await message.answer(response, reply_markup=kb.main_menu())
 
-# ==================== سیستم ماینر ====================
-@dp.message(F.text == "⛏ ماینر")
-async def miner_cmd(message: types.Message):
+# ==================== سیستم خرابکاری پیشرفته ====================
+@dp.message(F.text == "🦠 خرابکاری")
+async def sabotage_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
     
-    current_time = time.time()
-    time_since_last = current_time - user.get('miner_last_collect', 0)
-    
-    miner_text = f"""
-⛏ **سیستم ماینر**
+    sabotage_text = f"""
+🦠 **سیستم خرابکاری**
 
-💰 **موجودی ماینر**: {user['miner_balance']:,} ZP
-📊 **سطح ماینر**: {user['miner_level']}
-⏰ **درآمد پایه**: {user['miner_level'] * 10} ZP/ساعت
+🔧 **تعداد تیم‌ها**: {len(user['sabotage_teams'])}
+🎯 **مجموع شانس موفقیت**: {sum(SABOTAGE_TEAMS[team]['success_rate'] for team in user['sabotage_teams']):.1%}
 
+**تیم‌های شما:**
 """
     
-    if time_since_last >= 3600:  # 1 ساعت
-        collectable = int((time_since_last / 3600) * (user['miner_level'] * 10))
-        miner_text += f"✅ **آماده جمع‌آوری**: {collectable:,} ZP\n\n🔄 /collect برای جمع‌آوری"
+    if user['sabotage_teams']:
+        for i, team_level in enumerate(user['sabotage_teams']):
+            team_data = SABOTAGE_TEAMS[team_level]
+            sabotage_text += f"\n{i+1}. {team_data['name']} (لول {team_level}) - شانس: {team_data['success_rate']:.0%}"
     else:
-        remaining = 3600 - time_since_last
-        minutes = int(remaining // 60)
-        miner_text += f"⏳ **زمان باقی‌مانده**: {minutes} دقیقه"
+        sabotage_text += "\n❌ هیچ تیمی ندارید"
     
-    await message.answer(miner_text, reply_markup=kb.main_menu())
+    sabotage_text += "\n\n👇 اقدامات موجود:"
+    
+    if len(user['sabotage_teams']) > 0:
+        sabotage_text += "\n⚔️ حمله خرابکاری (/sabotage_attack)"
+    if len(user['sabotage_teams']) < 5:  # حداکثر 5 تیم
+        sabotage_text += "\n👥 استخدام تیم جدید (/hire_sabotage)"
+    if user['sabotage_teams']:
+        sabotage_text += "\n⬆️ ارتقای تیم (/upgrade_sabotage)"
+    
+    await message.answer(sabotage_text, reply_markup=kb.main_menu())
 
-@dp.message(Command("collect"))
-async def collect_miner_cmd(message: types.Message):
-    user = db.get_user(message.from_user.id)
-    current_time = time.time()
-    time_since_last = current_time - user.get('miner_last_collect', 0)
-    
-    if time_since_last < 3600:
-        remaining = 3600 - time_since_last
-        minutes = int(remaining // 60)
-        await message.answer(f"⏳ {minutes} دقیقه تا جمع‌آوری بعدی", reply_markup=kb.main_menu())
-        return
-    
-    collectable = int((time_since_last / 3600) * (user['miner_level'] * 10))
-    db.update_user_zp(message.from_user.id, collectable)
-    user['miner_last_collect'] = current_time
-    
-    await message.answer(f"✅ **جمع‌آوری موفق!**\n\n💰 {collectable:,} ZP دریافت کردید!", reply_markup=kb.main_menu())
-
-# ==================== سیستم خرابکاری پیشرفته ====================
-# این خط رو پیدا کن (خط 509):
-if len(user['sabotage_teams']) >= 5:
-
-# کل تابع hire_sabotage_cmd رو با این کد جایگزین کن:
 @dp.message(Command("hire_sabotage"))
 async def hire_sabotage_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
@@ -577,4 +559,150 @@ async def hire_sabotage_cmd(message: types.Message):
         "🦠 اکنون می‌توانید حملات خرابکاری انجام دهید\n"
         "⬆️ یا تیم خود را ارتقا دهید",
         reply_markup=kb.main_menu()
+    )
+
+@dp.message(Command("upgrade_sabotage"))
+async def upgrade_sabotage_cmd(message: types.Message):
+    user = db.get_user(message.from_user.id)
+    
+    if not user['sabotage_teams']:
+        await message.answer("❌ هیچ تیم خرابکاری ندارید!", reply_markup=kb.main_menu())
+        return
+    
+    # پیدا کردن اولین تیمی که می‌توان ارتقا داد
+    for i, team_level in enumerate(user['sabotage_teams']):
+        if team_level < 10:
+            upgrade_cost = SABOTAGE_TEAMS[team_level]['upgrade_cost']
+            
+            if user['zp'] >= upgrade_cost:
+                db.update_user_zp(message.from_user.id, -upgrade_cost)
+                success, new_level = db.upgrade_sabotage_team(message.from_user.id, i)
+                
+                if success:
+                    new_team_data = SABOTAGE_TEAMS[new_level]
+                    await message.answer(
+                        f"✅ **تیم خرابکاری ارتقا یافت!**\n\n"
+                        f"🦠 تیم {i+1} به لول {new_level} رسید\n"
+                        f"🏷 نام جدید: {new_team_data['name']}\n"
+                        f"🎯 شانس جدید: {new_team_data['success_rate']:.0%}\n"
+                        f"💰 هزینه: {upgrade_cost:,} ZP",
+                        reply_markup=kb.main_menu()
+                    )
+                    return
+            
+            else:
+                await message.answer(
+                    f"❌ موجودی ناکافی! نیاز به {upgrade_cost:,} ZP",
+                    reply_markup=kb.main_menu()
+                )
+                return
+    
+    await message.answer("✅ همه تیم‌های شما در حداکثر لول هستند! 🎉", reply_markup=kb.main_menu())
+
+@dp.message(Command("sabotage_attack"))
+async def sabotage_attack_cmd(message: types.Message):
+    user = db.get_user(message.from_user.id)
+    
+    if not user['sabotage_teams']:
+        await message.answer("❌ هیچ تیم خرابکاری ندارید!", reply_markup=kb.main_menu())
+        return
+    
+    # محاسبه میانگین شانس موفقیت
+    total_success_rate = sum(SABOTAGE_TEAMS[team]['success_rate'] for team in user['sabotage_teams'])
+    avg_success_rate = total_success_rate / len(user['sabotage_teams'])
+    
+    success = random.random() < avg_success_rate
+    
+    if success:
+        base_reward = 500 * len(user['sabotage_teams'])
+        bonus = sum(team * 100 for team in user['sabotage_teams'])
+        total_reward = base_reward + bonus
+        
+        db.update_user_zp(message.from_user.id, total_reward)
+        
+        response = (
+            f"✅ **حمله خرابکاری موفق!**\n\n"
+            f"💰 جایزه: {total_reward:,} ZP\n"
+            f"🎯 شانس موفقیت: {avg_success_rate:.1%}\n"
+            f"🦠 همه تیم‌ها سالم ماندند"
+        )
+    else:
+        # شانس از دست دادن یک تیم
+        if random.random() < 0.3 and len(user['sabotage_teams']) > 1:
+            lost_team_index = random.randint(0, len(user['sabotage_teams']) - 1)
+            lost_team_level = user['sabotage_teams'].pop(lost_team_index)
+            response = (
+                f"❌ **حمله خرابکاری شکست خورد!**\n\n"
+                f"💔 تیم لول {lost_team_level} از دست رفت\n"
+                f"🎯 شانس موفقیت: {avg_success_rate:.1%}\n"
+                f"🔄 تیم جدید استخدام کنید"
+            )
+        else:
+            response = (
+                f"❌ **حمله خرابکاری شکست خورد!**\n\n"
+                f"🎯 شانس موفقیت: {avg_success_rate:.1%}\n"
+                f"🦠 خوشبختانه هیچ تیمی از دست نرفت\n"
+                f"🔄 دوباره تلاش کنید"
+            )
+    
+    await message.answer(response, reply_markup=kb.main_menu())
+
+# ==================== سیستم برج امنیت سایبری ====================
+@dp.message(F.text == "🏢 برج امنیت")
+async def cyber_tower_cmd(message: types.Message):
+    user = db.get_user(message.from_user.id)
+    
+    current_level = user['cyber_level']
+    tower_data = CYBER_TOWER[current_level]
+    
+    cyber_text = f"""
+🏢 **برج امنیت سایبری**
+
+🏷 **نام**: {tower_data['name']}
+⭐ **سطح**: {current_level}/10
+🛡 **مزیت دفاعی**: +{tower_data['defense_bonus']} قدرت
+
+"""
+    
+    if current_level < 10:
+        next_level_data = CYBER_TOWER[current_level + 1]
+        cyber_text += (
+            f"⬆️ **ارتقا به سطح {current_level + 1}**\n"
+            f"💰 هزینه: {tower_data['upgrade_cost']:,} ZP\n"
+            f"🛡 مزیت جدید: +{next_level_data['defense_bonus']} قدرت\n\n"
+            f"🔧 /upgrade_cyber برای ارتقا"
+        )
+    else:
+        cyber_text += "🎉 **حداکثر سطح رسیده‌اید!** 🎉\n🏢 برج شما ضد ضربه است!"
+    
+    await message.answer(cyber_text, reply_markup=kb.main_menu())
+
+@dp.message(Command("upgrade_cyber"))
+async def upgrade_cyber_cmd(message: types.Message):
+    user = db.get_user(message.from_user.id)
+    
+    current_level = user['cyber_level']
+    
+    if current_level >= 10:
+        await message.answer("🎉 برج شما در حداکثر سطح است! 🏢", reply_markup=kb.main_menu())
+        return
+    
+    upgrade_cost = CYBER_TOWER[current_level]['upgrade_cost']
+    
+    if user['zp'] < upgrade_cost:
+        await message.answer(f"❌ موجودی ناکافی! نیاز به {upgrade_cost:,} ZP", reply_markup=kb.main_menu())
+        return
+    
+    db.update_user_zp(message.from_user.id, -upgrade_cost)
+    success, new_level = db.upgrade_cyber_tower(message.from_user.id)
+    
+    if success:
+        new_tower_data = CYBER_TOWER[new_level]
+        await message.answer(
+            f"✅ **برج امنیت ارتقا یافت!**\n\n"
+            f"🏢 اکنون: {new_tower_data['name']}\n"
+            f"⭐ سطح: {new_level}\n"
+            f"🛡 مزیت دفاعی: +{new_tower_data['defense_bonus']} قدرت\n"
+            f"💰 هزینه: {upgrade_cost:,} ZP",
+            reply_markup=kb.main_menu()
     )
