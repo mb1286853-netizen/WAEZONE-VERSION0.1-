@@ -1,4 +1,4 @@
-# main.py - WarZone Bot Complete
+# main.py - WarZone Bot Complete با Healthcheck Railway
 import os
 import asyncio
 import logging
@@ -6,33 +6,60 @@ import sys
 import random
 import time
 from datetime import datetime
-
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
-import keyboards as kb
-from config import SHOP_ITEMS, ATTACK_TYPES, ADMINS
-from database import db
+from aiohttp import web
 
 print("🚀 شروع WarZone Bot...")
+
+# بارگذاری متغیرهای محیطی
+from dotenv import load_dotenv
+load_dotenv()
 
 # تنظیمات لاگ
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('warzone_bot.log')
+    ]
 )
 logger = logging.getLogger(__name__)
 
 # بررسی توکن
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-if not TOKEN:
-    logger.error("❌ توکن یافت نشد!")
-    sys.exit(1)
+print(f"🔍 بررسی توکن: {TOKEN[:10]}..." if TOKEN else "❌ توکن پیدا نشد")
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# ایمپورت ماژول‌ها
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
+import keyboards as kb
+from config import SHOP_ITEMS, ATTACK_TYPES, ADMINS, DEFENSE_SYSTEM, BOXES, MINER_CONFIG
+from database import db
 
-# وضعیت کاربران
+# ==================== HEALTHCHECK برای Railway ====================
+async def health_check(request):
+    """سرور سلامت برای Railway"""
+    return web.Response(text="OK")
+
+async def start_health_server():
+    """شروع سرور سلامت"""
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    app.router.add_get('/', health_check)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.getenv("PORT", 8000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    
+    print(f"✅ سرور سلامت روی پورت {port} راه‌اندازی شد")
+    return runner
+
+# ==================== متغیرهای گلوبال ====================
+bot = None
+dp = None
 user_purchase_state = {}
 user_admin_state = {}
 
@@ -70,7 +97,11 @@ async def help_cmd(message: types.Message):
 👤 پروفایل - اطلاعات حساب
 🛒 فروشگاه - خرید تجهیزات  
 ⚔️ حمله - سیستم‌های حمله
+⛏ ماینر - استخراج منابع
 📦 باکس - جعبه‌های شانس
+🏆 لیگ - سیستم رقابتی
+🔧 خرابکاری - عملیات ویژه
+🛡 مدافعان - مبارزه با دیگران
 📞 پشتیبانی - ارسال تیکت
 """
     await message.answer(help_text, reply_markup=kb.main_menu())
@@ -87,6 +118,7 @@ async def admin_cmd(message: types.Message):
 📊 آمار بات
 👥 مدیریت کاربران
 📢 ارسال همگانی
+💾 ایجاد بکاپ
 """
     await message.answer(admin_text, reply_markup=kb.admin_menu())
 
@@ -102,11 +134,16 @@ async def profile_cmd(message: types.Message):
 💰 **ZP**: {user['zp']:,}
 💎 **جم**: {user['gem']}
 💪 **قدرت**: {user['power']}
+❤️ **سلامت**: {user.get('health', 500)}
 
 🎯 **حملات**: {user['total_attacks']:,}
 💥 **دمیج کل**: {user['total_damage']:,}
 🛩 **جنگنده‌ها**: {len(user['fighters'])}
 🛸 **پهپادها**: {len(user['drones'])}
+
+🔧 **خرابکاری**: سطح {user.get('sabotage_level', 0)}
+⛏ **ماینر**: سطح {user.get('miner_level', 1)}
+🛡 **دفاع**: {user.get('active_defense', 'ندارد')}
 """
     await message.answer(profile_text, reply_markup=kb.main_menu())
 
@@ -129,18 +166,25 @@ async def single_attack_cmd(message: types.Message):
     reward = random.randint(50, 100)
     xp_gain = random.randint(10, 20)
     
-    new_balance = db.update_user_zp(message.from_user.id, reward)
+    user['zp'] += reward
     user['total_attacks'] += 1
     user['total_damage'] += reward
+    db.save_data()
     
-    response = f"⚔️ **حمله تکی موفق!**\n\n💰 **جایزه**: {reward} ZP\n⭐ **XP**: +{xp_gain}\n💎 **موجودی جدید**: {new_balance:,} ZP"
+    response = f"""
+⚔️ **حمله تکی موفق!**
+
+💰 **جایزه**: {reward} ZP
+⭐ **XP**: +{xp_gain}
+💎 **موجودی جدید**: {user['zp']:,} ZP
+"""
     
     await message.answer(response, reply_markup=kb.main_menu())
 
 @dp.message(F.text == "💥 حمله ترکیبی")
 async def combo_attack_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
-    user_fighters = user['fighters']
+    user_fighters = user.get('fighters', {})
     
     if not user_fighters:
         await message.answer(
@@ -158,19 +202,27 @@ async def combo_attack_cmd(message: types.Message):
     reward = total_damage
     xp_gain = random.randint(15, 25)
     
-    new_balance = db.update_user_zp(message.from_user.id, reward)
+    user['zp'] += reward
     user['total_attacks'] += 1
     user['total_damage'] += total_damage
+    db.save_data()
     
     fighter_text = f" ({len(user_fighters)} جنگنده)"
-    response = f"💥 **حمله ترکیبی موفق**{fighter_text}\n\n💥 **دمیج**: {total_damage}\n💰 **جایزه**: {reward} ZP\n⭐ **XP**: +{xp_gain}\n💎 **موجودی جدید**: {new_balance:,} ZP"
+    response = f"""
+💥 **حمله ترکیبی موفق**{fighter_text}
+
+💥 **دمیج**: {total_damage}
+💰 **جایزه**: {reward} ZP
+⭐ **XP**: +{xp_gain}
+💎 **موجودی جدید**: {user['zp']:,} ZP
+"""
     
     await message.answer(response, reply_markup=kb.main_menu())
 
 @dp.message(F.text == "🛸 حمله پهپادی")
 async def drone_attack_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
-    user_drones = user['drones']
+    user_drones = user.get('drones', {})
     
     if not user_drones:
         await message.answer(
@@ -188,12 +240,20 @@ async def drone_attack_cmd(message: types.Message):
     reward = total_damage
     xp_gain = random.randint(12, 20)
     
-    new_balance = db.update_user_zp(message.from_user.id, reward)
+    user['zp'] += reward
     user['total_attacks'] += 1
     user['total_damage'] += total_damage
+    db.save_data()
     
     drone_text = f" ({len(user_drones)} پهپاد)"
-    response = f"🛸 **حمله پهپادی موفق**{drone_text}\n\n💥 **دمیج**: {total_damage}\n💰 **جایزه**: {reward} ZP\n⭐ **XP**: +{xp_gain}\n💎 **موجودی جدید**: {new_balance:,} ZP"
+    response = f"""
+🛸 **حمله پهپادی موفق**{drone_text}
+
+💥 **دمیج**: {total_damage}
+💰 **جایزه**: {reward} ZP
+⭐ **XP**: +{xp_gain}
+💎 **موجودی جدید**: {user['zp']:,} ZP
+"""
     
     await message.answer(response, reply_markup=kb.main_menu())
 
@@ -228,6 +288,9 @@ async def missiles_shop_cmd(message: types.Message):
 • تیرباران - 400 ZP
 • رعدآسا - 700 ZP  
 • تندباد - 1,000 ZP
+• زلزله - 1,500 ZP
+• آتشفشان - 8,000 ZP
+• توفان‌نو - 15,000 ZP
 """
     await message.answer(missiles_text, reply_markup=kb.missiles_menu())
 
@@ -243,6 +306,7 @@ async def fighters_shop_cmd(message: types.Message):
 • شب‌پرواز - 5,000 ZP
 • توفان‌ساز - 8,000 ZP
 • آذرخش - 12,000 ZP
+• شبح‌ساحل - 18,000 ZP
 """
     await message.answer(fighters_text, reply_markup=kb.fighters_menu())
 
@@ -273,122 +337,10 @@ async def defense_shop_cmd(message: types.Message):
 • سپر-۹۵ - 2,000 ZP
 • سدیفاکتور - 5,000 ZP
 • توربوشیلد - 10,000 ZP
+• لایه نوری - 20,000 ZP
+• پدافند افسانه‌ای - 50,000 ZP
 """
     await message.answer(defense_text, reply_markup=kb.defense_menu())
-
-# خرید موشک
-@dp.message(F.text.in_(["تیرباران", "رعدآسا", "تندباد"]))
-async def buy_missile_cmd(message: types.Message):
-    missile_name = message.text
-    user_id = message.from_user.id
-    
-    if missile_name in SHOP_ITEMS["موشک‌ها"]:
-        item_data = SHOP_ITEMS["موشک‌ها"][missile_name]
-        user = db.get_user(user_id)
-        
-        if not db.can_afford(user_id, item_data['price']):
-            await message.answer(
-                f"❌ **موجودی ناکافی!**\n\n"
-                f"قیمت {missile_name}: {item_data['price']:,} ZP\n"
-                f"موجودی شما: {user['zp']:,} ZP",
-                reply_markup=kb.missiles_menu()
-            )
-            return
-        
-        if db.purchase_item(user_id, item_data['price']):
-            db.add_missile(user_id, missile_name, 1)
-            new_count = user['missiles'][missile_name]
-            
-            response = f"✅ **خرید موفق!**\n\n🚀 {missile_name} خریداری شد\n💰 هزینه: {item_data['price']:,} ZP\n📦 تعداد: {new_count} عدد\n💎 موجودی جدید: {user['zp']:,} ZP"
-            await message.answer(response, reply_markup=kb.shop_main_menu())
-
-# خرید جنگنده
-@dp.message(F.text.in_(["شب‌پرواز", "توفان‌ساز", "آذرخش"]))
-async def buy_fighter_cmd(message: types.Message):
-    fighter_name = message.text
-    user_id = message.from_user.id
-    
-    if fighter_name in SHOP_ITEMS["جنگنده‌ها"]:
-        item_data = SHOP_ITEMS["جنگنده‌ها"][fighter_name]
-        user = db.get_user(user_id)
-        
-        if not db.can_afford(user_id, item_data['price']):
-            await message.answer(
-                f"❌ **موجودی ناکافی!**\n\n"
-                f"قیمت {fighter_name}: {item_data['price']:,} ZP\n"
-                f"موجودی شما: {user['zp']:,} ZP",
-                reply_markup=kb.fighters_menu()
-            )
-            return
-        
-        if fighter_name in user['fighters']:
-            await message.answer(
-                f"❌ **شما قبلاً این جنگنده را دارید!**",
-                reply_markup=kb.fighters_menu()
-            )
-            return
-        
-        if db.purchase_item(user_id, item_data['price']):
-            db.add_fighter(user_id, fighter_name)
-            response = f"✅ **خرید موفق!**\n\n🛩 {fighter_name} خریداری شد\n💰 هزینه: {item_data['price']:,} ZP\n💎 موجودی جدید: {user['zp']:,} ZP"
-            await message.answer(response, reply_markup=kb.shop_main_menu())
-
-# خرید پهپاد
-@dp.message(F.text.in_(["زنبورک", "سایفر", "ریزپرنده V"]))
-async def buy_drone_cmd(message: types.Message):
-    drone_name = message.text
-    user_id = message.from_user.id
-    
-    if drone_name in SHOP_ITEMS["پهپادها"]:
-        item_data = SHOP_ITEMS["پهپادها"][drone_name]
-        user = db.get_user(user_id)
-        
-        if not db.can_afford(user_id, item_data['price']):
-            await message.answer(
-                f"❌ **موجودی ناکافی!**\n\n"
-                f"قیمت {drone_name}: {item_data['price']:,} ZP\n"
-                f"موجودی شما: {user['zp']:,} ZP",
-                reply_markup=kb.drones_menu()
-            )
-            return
-        
-        if drone_name in user['drones']:
-            await message.answer(
-                f"❌ **شما قبلاً این پهپاد را دارید!**",
-                reply_markup=kb.drones_menu()
-            )
-            return
-        
-        if db.purchase_item(user_id, item_data['price']):
-            db.add_drone(user_id, drone_name)
-            response = f"✅ **خرید موفق!**\n\n🛸 {drone_name} خریداری شد\n💰 هزینه: {item_data['price']:,} ZP\n💎 موجودی جدید: {user['zp']:,} ZP"
-            await message.answer(response, reply_markup=kb.shop_main_menu())
-
-# خرید پدافند
-@dp.message(F.text.in_(["سپر-۹۵", "سدیفاکتور", "توربوشیلد"]))
-async def buy_defense_cmd(message: types.Message):
-    defense_name = message.text
-    user_id = message.from_user.id
-    
-    if defense_name in SHOP_ITEMS["پدافند"]:
-        item_data = SHOP_ITEMS["پدافند"][defense_name]
-        user = db.get_user(user_id)
-        
-        if not db.can_afford(user_id, item_data['price']):
-            await message.answer(
-                f"❌ **موجودی ناکافی!**\n\n"
-                f"قیمت {defense_name}: {item_data['price']:,} ZP\n"
-                f"موجودی شما: {user['zp']:,} ZP",
-                reply_markup=kb.defense_menu()
-            )
-            return
-        
-        if db.purchase_item(user_id, item_data['price']):
-            user['defense_level'] += 1
-            response = f"✅ **خرید موفق!**\n\n🛡 {defense_name} خریداری شد\n💰 هزینه: {item_data['price']:,} ZP\n🛡️ سطح دفاع جدید: {user['defense_level']}\n💎 موجودی جدید: {user['zp']:,} ZP"
-            await message.answer(response, reply_markup=kb.shop_main_menu())
-
-# ادامه main.py بعد از بخش فروشگاه
 
 # ==================== سیستم ماینر ====================
 @dp.message(F.text == "⛏ ماینر")
@@ -476,7 +428,7 @@ async def league_cmd(message: types.Message):
 🏆 **سیستم لیگ**
 
 📊 **لیگ فعلی**: {user['league']}
-⭐ **امتیازات**: {user['league_points']:,}
+⭐ **امتیازات**: {user.get('league_points', 0):,}
 🏅 **جایزه روزانه**: {100 * user['level']:,} ZP
 
 👇 عملیات مورد نظر را انتخاب کنید:
@@ -491,9 +443,9 @@ async def sabotage_cmd(message: types.Message):
     sabotage_text = f"""
 🔧 **تیم خرابکاری**
 
-📊 **سطح**: {user['sabotage_level']}/10
-👥 **تیم‌ها**: {user['sabotage_teams']}
-🎯 **نرخ موفقیت**: {int(user['sabotage_success_rate'] * 100)}%
+📊 **سطح**: {user.get('sabotage_level', 0)}/10
+👥 **تیم‌ها**: {user.get('sabotage_teams', 0)}
+🎯 **نرخ موفقیت**: {int(user.get('sabotage_success_rate', 0.1) * 100)}%
 
 👇 عملیات خرابکارانه:
 """
@@ -502,20 +454,21 @@ async def sabotage_cmd(message: types.Message):
 @dp.message(F.text == "⬆️ ارتقا خرابکاری")
 async def upgrade_sabotage_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
+    sabotage_level = user.get('sabotage_level', 0)
     
-    if user['sabotage_level'] >= 10:
+    if sabotage_level >= 10:
         await message.answer("🎉 شما به سطح فوق‌حرفه‌ای (۱۰) رسیده‌اید!", reply_markup=kb.sabotage_menu())
         return
     
-    cost = 5000 * (user['sabotage_level'] + 1)
+    cost = 5000 * (sabotage_level + 1)
     
     if user['zp'] >= cost:
-        user['sabotage_level'] += 1
-        user['sabotage_success_rate'] += 0.1
+        user['sabotage_level'] = sabotage_level + 1
+        user['sabotage_success_rate'] = user.get('sabotage_success_rate', 0.1) + 0.1
         user['zp'] -= cost
         
         if user['sabotage_level'] % 2 == 0:
-            user['sabotage_teams'] += 1
+            user['sabotage_teams'] = user.get('sabotage_teams', 0) + 1
         
         db.save_data()
         
@@ -560,14 +513,14 @@ async def attack_defender_cmd(message: types.Message):
     
     # شبیه‌سازی مبارزه
     enemy_power = random.randint(50, 500)
-    your_power = user['power'] + (len(user['fighters']) * 20)
+    your_power = user['power'] + (len(user.get('fighters', {})) * 20)
     
     if your_power > enemy_power:
         reward = random.randint(100, 500)
         xp_gain = random.randint(10, 30)
         
         user['zp'] += reward
-        user['xp'] += xp_gain
+        user['xp'] = user.get('xp', 0) + xp_gain
         user['total_attacks'] += 1
         user['total_damage'] += reward
         
@@ -647,15 +600,15 @@ async def cyber_security_cmd(message: types.Message):
     cyber_text = f"""
 🔐 **امنیت سایبری**
 
-🛡 **سطح فعلی**: {user['cyber_level']}/10
-🚨 **دفاع فعال**: {'✅' if user['cyber_defense'] else '❌'}
-💪 **محافظت**: {user['cyber_level'] * 10}%
+🛡 **سطح فعلی**: {user.get('cyber_level', 1)}/10
+🚨 **دفاع فعال**: {'✅' if user.get('cyber_defense', False) else '❌'}
+💪 **محافظت**: {user.get('cyber_level', 1) * 10}%
 
-سطح‌های موجود:
+👇 برای ارتقا سطح مورد نظر را انتخاب کنید:
 """
     await message.answer(cyber_text, reply_markup=kb.cyber_menu())
 
-# ==================== پنل ادمین پیشرفته ====================
+# ==================== پنل ادمین ====================
 @dp.message(F.text == "📊 آمار کلی")
 async def admin_stats_cmd(message: types.Message):
     if not db.is_admin(message.from_user.id):
@@ -672,7 +625,7 @@ async def admin_stats_cmd(message: types.Message):
 📞 **تیکت‌ها**: {stats['total_tickets']}
 🟢 **تیکت‌های باز**: {stats['open_tickets']}
 
-💾 **آخرین بکاپ**: {'فعال' if hasattr(db, 'last_backup') else 'ندارد'}
+💾 **دیتابیس**: {os.path.getsize('warzone_data.json') / 1024:.1f} KB
 """
     await message.answer(stats_text, reply_markup=kb.admin_menu())
 
@@ -687,12 +640,12 @@ async def admin_users_cmd(message: types.Message):
 👥 **مدیریت کاربران**
 
 📝 آیدی کاربر را برای مدیریت ارسال کنید
+
+عملیات‌های ممکن:
 👁 مشاهده اطلاعات کاربر
 💰 دادن ZP به کاربر
 💎 دادن جم به کاربر
 ⬆️ تغییر سطح کاربر
-
-🔍 یا نام کاربری را جستجو کنید
 """
     await message.answer(users_text)
 
@@ -706,7 +659,7 @@ async def admin_backup_cmd(message: types.Message):
     else:
         await message.answer("❌ خطا در ایجاد بکاپ!", reply_markup=kb.admin_menu())
 
-# ==================== هندلر پیام متنی برای تیکت ====================
+# ==================== هندلر پیام متنی ====================
 @dp.message(F.text)
 async def handle_text_messages(message: types.Message):
     user_id = message.from_user.id
@@ -736,42 +689,4 @@ async def handle_text_messages(message: types.Message):
 ⭐ **سطح**: {user['level']}
 💰 **ZP**: {user['zp']:,}
 💎 **جم**: {user['gem']}
-⚔️ **حملات**: {user['total_attacks']:,}
-🛡 **ادمین**: {'✅' if user.get('is_admin') else '❌'}
-
-👇 عملیات مورد نظر را انتخاب کنید:
-"""
-                # ایجاد کیبورد مدیریت برای این کاربر خاص
-                builder = ReplyKeyboardBuilder()
-                builder.row(
-                    KeyboardButton(text=f"💰 دادن ZP به {target_user_id}"),
-                    KeyboardButton(text=f"💎 دادن جم به {target_user_id}")
-                )
-                builder.row(
-                    KeyboardButton(text=f"⬆️ سطح {target_user_id}"),
-                    KeyboardButton(text=f"👁 جزئیات {target_user_id}")
-                )
-                builder.row(KeyboardButton(text="🔙 بازگشت"))
-                
-                user_admin_state[user_id]['target_user'] = target_user_id
-                await message.answer(admin_text, reply_markup=builder.as_markup(resize_keyboard=True))
-            else:
-                await message.answer("❌ کاربر یافت نشد!")
-        except ValueError:
-            await message.answer("❌ لطفا یک آیدی عددی معتبر ارسال کنید!")
-        return
-
-# ==================== تابع اصلی ====================
-async def main():
-    print("🤖 بات در حال اجرا است...")
-    print(f"👑 تعداد ادمین‌ها: {len(ADMINS)}")
-    print(f"🛍 آیتم‌های فروشگاه: {sum(len(items) for items in SHOP_ITEMS.values())}")
-    
-    try:
-        await dp.start_polling(bot, skip_updates=True)
-    except Exception as e:
-        logger.error(f"❌ خطا در اجرای بات: {e}")
-        print(f"خطا: {e}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+⚔️ **حملات**: {user['total_att
