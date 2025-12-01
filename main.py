@@ -1,4 +1,4 @@
-# main.py - WarZone Bot Complete
+# main.py - WarZone Bot Complete با سیستم بکاپ
 import os
 import asyncio
 import logging
@@ -11,7 +11,8 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 import keyboards as kb
 from config import SHOP_ITEMS, ATTACK_TYPES, ADMINS, SABOTAGE_TEAMS, CYBER_TOWER
-from database import db
+from database_stable import db  # تغییر شده
+from backup_manager import backup_mgr, auto_backup  # جدید
 
 print("🚀 شروع WarZone Bot...")
 
@@ -35,6 +36,10 @@ dp = Dispatcher()
 # وضعیت کاربران
 user_purchase_state = {}
 user_admin_state = {}
+
+# شروع سیستم بکاپ خودکار
+auto_backup.start()
+print("🔄 سیستم بکاپ خودکار فعال شد")
 
 # ==================== دستورات اصلی ====================
 @dp.message(Command("start"))
@@ -92,6 +97,7 @@ async def admin_cmd(message: types.Message):
 👥 مدیریت کاربران
 📢 ارسال همگانی
 🎁 هدیه همگانی
+💾 مدیریت بکاپ
 """
     await message.answer(admin_text, reply_markup=kb.admin_menu())
 
@@ -582,9 +588,4 @@ async def hire_sabotage_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
     
     if len(user['sabotage_teams']) >= 5:
-        await message.answer("❌ حداکثر 5 تیم می‌توانید داشته باشید!", reply_markup=kb.main_menu())
-        return
-    
-    cost = 2000
-    if user['zp'] < cost:
-        await message.answer(f"❌ موجودی ناکافی! نیاز به {c
+        await message.answe
