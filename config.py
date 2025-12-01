@@ -58,3 +58,29 @@ BOXES = {
     "طلایی": {"price": 2, "currency": "gem"},
     "الماس": {"price": 5, "currency": "gem"},
 }
+
+SABOTAGE_TEAMS = {
+    1: {"name": "تیم تازه‌کار", "success_rate": 0.3, "upgrade_cost": 1000},
+    2: {"name": "تیم مبتدی", "success_rate": 0.4, "upgrade_cost": 2000},
+    3: {"name": "تیم معمولی", "success_rate": 0.5, "upgrade_cost": 3500},
+    4: {"name": "تیم حرفه‌ای", "success_rate": 0.6, "upgrade_cost": 5000},
+    5: {"name": "تیم نخبه", "success_rate": 0.65, "upgrade_cost": 7000},
+    6: {"name": "تیم ویژه", "success_rate": 0.7, "upgrade_cost": 10000},
+    7: {"name": "تیم طلایی", "success_rate": 0.75, "upgrade_cost": 15000},
+    8: {"name": "تیم الماسی", "success_rate": 0.8, "upgrade_cost": 20000},
+    9: {"name": "تیم افسانه‌ای", "success_rate": 0.85, "upgrade_cost": 30000},
+    10: {"name": "تیم فوق حرفه‌ای", "success_rate": 0.9, "upgrade_cost": 50000}
+}
+
+CYBER_TOWER = {
+    1: {"name": "برج پایه", "defense_bonus": 10, "upgrade_cost": 2000},
+    2: {"name": "برج پیشرفته", "defense_bonus": 20, "upgrade_cost": 4000},
+    3: {"name": "برج حرفه‌ای", "defense_bonus": 35, "upgrade_cost": 7000},
+    4: {"name": "برج طلایی", "defense_bonus": 55, "upgrade_cost": 11000},
+    5: {"name": "برج الماسی", "defense_bonus": 80, "upgrade_cost": 16000},
+    6: {"name": "برج امنیتی", "defense_bonus": 110, "upgrade_cost": 22000},
+    7: {"name": "برج دفاعی", "defense_bonus": 145, "upgrade_cost": 29000},
+    8: {"name": "برج نظامی", "defense_bonus": 185, "upgrade_cost": 37000},
+    9: {"name": "برج استراتژیک", "defense_bonus": 230, "upgrade_cost": 46000},
+    10: {"name": "برج ضد ضربه", "defense_bonus": 280, "upgrade_cost": 56000}
+}
