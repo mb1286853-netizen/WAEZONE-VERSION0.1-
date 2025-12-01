@@ -552,40 +552,29 @@ async def collect_miner_cmd(message: types.Message):
     await message.answer(f"✅ **جمع‌آوری موفق!**\n\n💰 {collectable:,} ZP دریافت کردید!", reply_markup=kb.main_menu())
 
 # ==================== سیستم خرابکاری پیشرفته ====================
-@dp.message(F.text == "🦠 خرابکاری")
-async def sabotage_cmd(message: types.Message):
-    user = db.get_user(message.from_user.id)
-    
-    sabotage_text = f"""
-🦠 **سیستم خرابکاری**
+# این خط رو پیدا کن (خط 509):
+if len(user['sabotage_teams']) >= 5:
 
-🔧 **تعداد تیم‌ها**: {len(user['sabotage_teams'])}
-🎯 **مجموع شانس موفقیت**: {sum(SABOTAGE_TEAMS[team]['success_rate'] for team in user['sabotage_teams']):.1%}
-
-**تیم‌های شما:**
-"""
-    
-    if user['sabotage_teams']:
-        for i, team_level in enumerate(user['sabotage_teams']):
-            team_data = SABOTAGE_TEAMS[team_level]
-            sabotage_text += f"\n{i+1}. {team_data['name']} (لول {team_level}) - شانس: {team_data['success_rate']:.0%}"
-    else:
-        sabotage_text += "\n❌ هیچ تیمی ندارید"
-    
-    sabotage_text += "\n\n👇 اقدامات موجود:"
-    
-    if len(user['sabotage_teams']) > 0:
-        sabotage_text += "\n⚔️ حمله خرابکاری (/sabotage_attack)"
-    if len(user['sabotage_teams']) < 5:  # حداکثر 5 تیم
-        sabotage_text += "\n👥 استخدام تیم جدید (/hire_sabotage)"
-    if user['sabotage_teams']:
-        sabotage_text += "\n⬆️ ارتقای تیم (/upgrade_sabotage)"
-    
-    await message.answer(sabotage_text, reply_markup=kb.main_menu())
-
+# کل تابع hire_sabotage_cmd رو با این کد جایگزین کن:
 @dp.message(Command("hire_sabotage"))
 async def hire_sabotage_cmd(message: types.Message):
     user = db.get_user(message.from_user.id)
     
     if len(user['sabotage_teams']) >= 5:
-        await message.answe
+        await message.answer("❌ حداکثر 5 تیم می‌توانید داشته باشید!", reply_markup=kb.main_menu())
+        return
+    
+    cost = 2000
+    if user['zp'] < cost:
+        await message.answer(f"❌ موجودی ناکافی! نیاز به {cost:,} ZP", reply_markup=kb.main_menu())
+        return
+    
+    db.update_user_zp(message.from_user.id, -cost)
+    db.add_sabotage_team(message.from_user.id, 1)  # تیم لول 1
+    
+    await message.answer(
+        "✅ **تیم خرابکاری لول 1 استخدام شد!**\n\n"
+        "🦠 اکنون می‌توانید حملات خرابکاری انجام دهید\n"
+        "⬆️ یا تیم خود را ارتقا دهید",
+        reply_markup=kb.main_menu()
+    )
