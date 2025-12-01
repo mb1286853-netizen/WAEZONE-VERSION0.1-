@@ -1,4 +1,3 @@
-# main.py - WarZone Bot با Polling بهبود یافته
 import os
 import asyncio
 import logging
@@ -6,42 +5,75 @@ import sys
 import random
 import time
 from datetime import datetime
-from aiohttp import web  # برای health check
+from aiohttp import web
+import socket
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-import keyboards as kb
-from config import SHOP_ITEMS, ATTACK_TYPES, ADMINS, SABOTAGE_TEAMS, CYBER_TOWER
-from database_stable import db
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.default import DefaultBotProperties
 
-print("🚀 شروع WarZone Bot با Polling بهبود یافته...")
+print("🚀 شروع WarZone Bot...")
 
 # تنظیمات لاگ
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# بررسی توکن
+# ==================== تنظیمات بات ====================
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
-    logger.error("❌ توکن یافت نشد!")
+    print("❌ توکن یافت نشد!")
+    print("⚠️ در Railway: Settings → Variables → TELEGRAM_TOKEN")
     sys.exit(1)
 
-bot = Bot(token=TOKEN)
+print(f"✅ توکن دریافت شد: {TOKEN[:10]}...")
+
+# ایجاد session با timeout بیشتر
+session = AiohttpSession(
+    timeout=30.0,
+    connector=None,
+)
+
+default = DefaultBotProperties(
+    parse_mode="HTML",
+    disable_web_page_preview=True,
+)
+
+bot = Bot(
+    token=TOKEN,
+    session=session,
+    default=default,
+)
+
 dp = Dispatcher()
 
+# ==================== تست اتصال ====================
+async def test_connection():
+    """تست اتصال به تلگرام"""
+    max_retries = 3
+    for i in range(max_retries):
+        try:
+            print(f"🔗 تلاش {i+1} برای اتصال...")
+            me = await bot.get_me()
+            print(f"✅ اتصال موفق! بات: @{me.username}")
+            return True
+        except Exception as e:
+            print(f"❌ خطای اتصال: {e}")
+            if i < max_retries - 1:
+                await asyncio.sleep(2)
+    return False
+
 # ==================== HEALTH CHECK ====================
-# ایجاد سرور ساده برای Railway Health Check
 app = web.Application()
 
 async def health_check(request):
     return web.Response(text="✅ بات WarZone فعال است")
 
-app.router.add_get('/health', health_check)
 app.router.add_get('/', health_check)
+app.router.add_get('/health', health_check)
 
 # ==================== KEEP ALIVE ====================
 async def keep_alive():
@@ -49,52 +81,40 @@ async def keep_alive():
     print("🔗 Keep Alive فعال شد")
     while True:
         try:
-            await asyncio.sleep(60)  # هر 60 ثانیه
-            me = await bot.get_me()
-            print(f"✅ Keep Alive - بات فعال: @{me.username}")
+            await asyncio.sleep(300)  # هر 5 دقیقه
+            # تست اتصال ساده
+            print(f"🕒 Keep Alive: {datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
             print(f"⚠️ Keep Alive خطا: {e}")
 
-# ==================== تست بات ====================
+# ==================== هندلرهای ساده ====================
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
-    user = db.get_user(message.from_user.id)
-    
     await message.answer(
-        f"🎯 **به WarZone خوش آمدید!** ⚔️\n\n"
-        f"💰 موجودی: {user['zp']:,} ZP\n"
-        f"⭐ سطح: {user['level']}\n"
-        f"💪 قدرت: {user['power']}\n\n"
-        f"👇 از منوی زیر انتخاب کنید:",
-        reply_markup=kb.main_menu()
-    )
-    print(f"✅ کاربر {message.from_user.id} استارت زد")
-
-@dp.message(Command("ping"))
-async def ping_cmd(message: types.Message):
-    """بررسی latency"""
-    start = time.time()
-    msg = await message.answer("🏓 پینگ...")
-    latency = (time.time() - start) * 1000
-    await msg.edit_text(f"🏓 پونگ!\n⏱ زمان: {latency:.0f}ms\n✅ بات فعال است")
-
-@dp.message(Command("debug"))
-async def debug_cmd(message: types.Message):
-    """اطلاعات دیباگ"""
-    try:
-        me = await bot.get_me()
-        user = db.get_user(message.from_user.id)
-        
-        await message.answer(
-            f"🔧 **اطلاعات دیباگ**\n\n"
-            f"🤖 بات: @{me.username}\n"
-            f"👤 کاربر: {message.from_user.id}\n"
-            f"💰 ZP: {user['zp']:,}\n"
-            f"🕒 زمان: {datetime.now().strftime('%H:%M:%S')}\n"
-            f"✅ وضعیت: آنلاین"
+        "🎯 **به WarZone خوش آمدید!** ⚔️\n\n"
+        "👇 از منوی زیر انتخاب کنید:",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[
+                [types.KeyboardButton(text="✅ تست بات")],
+                [types.KeyboardButton(text="📊 وضعیت")]
+            ],
+            resize_keyboard=True
         )
-    except Exception as e:
-        await message.answer(f"❌ خطا: {str(e)}")
+    )
+
+@dp.message(F.text == "✅ تست بات")
+async def test_bot(message: types.Message):
+    await message.answer("✅ بات فعال است! می‌توانید شروع کنید.")
+
+@dp.message(F.text == "📊 وضعیت")
+async def status_cmd(message: types.Message):
+    await message.answer(
+        f"📊 **وضعیت بات**\n\n"
+        f"✅ وضعیت: آنلاین\n"
+        f"🕒 زمان: {datetime.now().strftime('%H:%M:%S')}\n"
+        f"🔗 Keep Alive: فعال\n"
+        f"🌐 Health Check: OK"
+    )
 
 # ==================== تابع اصلی ====================
 async def main():
@@ -103,21 +123,28 @@ async def main():
     print("=" * 50)
     
     try:
-        # 1. شروع Health Check Server
+        # 1. تست اتصال اولیه
+        print("🔍 تست اتصال به تلگرام...")
+        if not await test_connection():
+            print("❌ اتصال به تلگرام ناموفق بود!")
+            print("⚠️ دلایل احتمالی:")
+            print("   - توکن اشتباه")
+            print("   - مشکل شبکه")
+            print("   - IP شما بلاک شده")
+            sys.exit(1)
+        
+        # 2. شروع Health Check Server
+        port = int(os.getenv("PORT", 8080))
         runner = web.AppRunner(app)
         await runner.setup()
-        site = web.TCPSite(runner, '0.0.0.0', 8080)
+        site = web.TCPSite(runner, '0.0.0.0', port)
         await site.start()
-        print("🌐 Health Check: http://0.0.0.0:8080/health")
+        print(f"🌐 Health Check فعال: پورت {port}")
         
-        # 2. شروع Keep Alive
+        # 3. شروع Keep Alive
         asyncio.create_task(keep_alive())
         
-        # 3. حذف webhook قبلی
-        await bot.delete_webhook(drop_pending_updates=True)
-        print("✅ Webhook حذف شد")
-        
-        # 4. شروع Polling با تنظیمات بهینه
+        # 4. شروع Polling (بدون delete_webhook اول)
         print("🔄 شروع Polling...")
         print("⏳ منتظر پیام‌ها...")
         print("=" * 50)
@@ -125,9 +152,9 @@ async def main():
         await dp.start_polling(
             bot,
             skip_updates=True,
-            timeout=60,  # افزایش timeout
-            relax=0.5,
-            allowed_updates=dp.resolve_used_update_types()
+            timeout=90,  # timeout طولانی
+            relax=1.0,
+            close_bot_session=True
         )
         
     except KeyboardInterrupt:
@@ -139,5 +166,9 @@ async def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    # شروع برنامه
-    asyncio.run(main())
+    # تنظیم event loop
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n👋 بات متوقف شد")
+        sys.exit(0)
