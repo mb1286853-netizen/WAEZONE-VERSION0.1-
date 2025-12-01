@@ -1,0 +1,19 @@
+import os
+import asyncio
+from aiogram import Bot
+
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+async def test():
+    try:
+        bot = Bot(token=TOKEN)
+        me = await bot.get_me()
+        print(f"✅ ربات: @{me.username}")
+        print(f"🆔 آیدی: {me.id}")
+        await bot.session.close()
+        return True
+    except Exception as e:
+        print(f"❌ خطا: {e}")
+        return False
+
+asyncio.run(test())
