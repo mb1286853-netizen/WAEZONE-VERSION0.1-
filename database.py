@@ -19,21 +19,21 @@ class WarZoneDB:
                     'user_id': admin_id,
                     'level': 100,
                     'xp': 0,
-                    'zp': 999999,
-                    'gem': 9999,
-                    'power': 1000,
+                    'zp': 999999999,  # 🎯 سکه بی‌نهایت
+                    'gem': 999999999,  # 🎯 جم بی‌نهایت
+                    'power': 10000,
                     'defense_level': 10,
-                    'cyber_level': 10,
-                    'miner_level': 15,
+                    'cyber_level': 10,  # 🆕 برج امنیت سایبری لول 10
+                    'miner_level': 20,
                     'miner_balance': 0,
                     'miner_last_collect': 0,
-                    'total_attacks': 0,
-                    'total_damage': 0,
+                    'total_attacks': 9999,
+                    'total_damage': 9999999,
                     'last_bronze_box': 0,
                     'fighters': list(SHOP_ITEMS["جنگنده‌ها"].keys()),
-                    'missiles': {missile: 999 for missile in SHOP_ITEMS["موشک‌ها"].keys()},
+                    'missiles': {missile: 9999 for missile in SHOP_ITEMS["موشک‌ها"].keys()},
                     'drones': list(SHOP_ITEMS["پهپادها"].keys()),
-                    'sabotage_teams': [],
+                    'sabotage_teams': [10],  # 🆕 تیم خرابکاری لول 10
                     'attack_combos': [{}, {}, {}],
                     'league': 'افسانه‌ای',
                     'league_reward_claimed': False,
@@ -52,7 +52,7 @@ class WarZoneDB:
                 'gem': 0,
                 'power': 100,
                 'defense_level': 1,
-                'cyber_level': 1,
+                'cyber_level': 1,  # 🆕 برج امنیت سایبری
                 'miner_level': 1,
                 'miner_balance': 0,
                 'miner_last_collect': 0,
@@ -62,7 +62,7 @@ class WarZoneDB:
                 'fighters': [],
                 'missiles': {missile: 0 for missile in SHOP_ITEMS["موشک‌ها"].keys()},
                 'drones': [],
-                'sabotage_teams': [],
+                'sabotage_teams': [],  # 🆕 تیم‌های خرابکاری (لیست لول‌ها)
                 'attack_combos': [{}, {}, {}],
                 'league': 'برنز',
                 'league_reward_claimed': False,
@@ -192,6 +192,28 @@ class WarZoneDB:
             'total_tickets': total_tickets,
             'open_tickets': open_tickets
         }
+    
+    # 🆕 توابع جدید برای تیم خرابکاری و برج امنیت
+    def add_sabotage_team(self, user_id, team_level=1):
+        user = self.get_user(user_id)
+        user['sabotage_teams'].append(team_level)
+        return len(user['sabotage_teams'])
+    
+    def upgrade_sabotage_team(self, user_id, team_index):
+        user = self.get_user(user_id)
+        if 0 <= team_index < len(user['sabotage_teams']):
+            current_level = user['sabotage_teams'][team_index]
+            if current_level < 10:
+                user['sabotage_teams'][team_index] += 1
+                return True, user['sabotage_teams'][team_index]
+        return False, current_level
+    
+    def upgrade_cyber_tower(self, user_id):
+        user = self.get_user(user_id)
+        if user['cyber_level'] < 10:
+            user['cyber_level'] += 1
+            return True, user['cyber_level']
+        return False, user['cyber_level']
 
 # ایجاد نمونه دیتابیس
 db = WarZoneDB()
